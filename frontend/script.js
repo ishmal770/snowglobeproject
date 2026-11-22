@@ -21,6 +21,7 @@ let lastStarTime = [0, 0];
 // practice room playback: mandatory slow once, fast once, then 2 fast replays
 let practiceStage = "idle"; // idle | slow | fast | replay | done
 let practiceReplaysLeft = 2;
+let practiceSeeking = false;
 
 const BODY = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24],
               [23, 25], [25, 27], [27, 29], [29, 31], [27, 31], [24, 26], [26, 28], [28, 30],
@@ -131,7 +132,7 @@ async function pickDance(forceNew = false) {
         console.error("Server error:", error);
         status.textContent =
             "Can't reach the game server. Is python server.py running?";
-        return;
+        return false;
     }
 
     if (!currentDance || forceNew) {
@@ -156,31 +157,260 @@ async function pickDance(forceNew = false) {
     }
 
     document.getElementById("duo-hint").hidden = !currentDance.duo;
+
+    return true;
 }
 
 
-function newDance() {
-    pickDance(true);
+async function newDance() {
+
+    const loaded = await pickDance(true);
+
+    if (!loaded) return;
+    if (!document.getElementById("tutorial").classList.contains("active")) return;
+
+    // a different dance starts the mandatory slow + fast watch again
+    beginPracticeSequence();
 }
 
 
-// PLAY THE TUTORIAL SLOW OR AT NORMAL SPEED
-function playTutorial(speed) {
+// ============================================================
+// PRACTICE ROOM: BIG "TIME TO LEARN" INTRO
+// ============================================================
+
+function startPracticeIntro() {
+
+    clearInterval(introTimer);
+
+    let count = 5;
+
+    const label = document.getElementById("intro-count");
+
+    if (label) label.textContent = count;
+
+    introTimer = setInterval(() => {
+
+        count--;
+
+        if (label) label.textContent = Math.max(count, 0);
+
+        if (count <= 0) {
+
+            clearInterval(introTimer);
+            introTimer = null;
+
+            if (document.getElementById("practice-intro").classList.contains("active")) {
+                goToPage("tutorial");
+            }
+        }
+
+    }, 1000);
+}
+
+
+function enterPractice() {
+
+    clearInterval(introTimer);
+    introTimer = null;
+
+    goToPage("tutorial");
+}
+
+
+// ============================================================
+// PRACTICE ROOM: MANDATORY SLOW ONCE, FAST ONCE, THEN 2 REPLAYS
+// ============================================================
+
+async function enterPracticeRoom() {
+
+    const loaded = await pickDance();
+
+    if (!loaded) return;
+    if (!document.getElementById("tutorial").classList.contains("active")) return;
+
+    beginPracticeSequence();
+}
+
+
+function beginPracticeSequence() {
+
+    practiceReplaysLeft = 2;
+    practiceStage = "slow";
+
+    updatePracticeUI();
+    playPracticeVideo(0.75);
+}
+
+
+function playPracticeVideo(rate) {
 
     const video = document.getElementById("tutorial-video");
 
-    video.currentTime = 0;
-    video.playbackRate = speed;
+    if (!video || !video.getAttribute("src")) return;
+
+    document.getElementById("tutorial-tap").hidden = true;
+
+    video.pause();
+    video.playbackRate = rate;
     video.muted = false;
-    video.play();
+
+    // ignore timeupdate while we rewind, otherwise the old end-of-clip
+    // position can make the next stage finish instantly
+    practiceSeeking = true;
+
+    const seekDone = () => {
+        practiceSeeking = false;
+    };
+
+    video.addEventListener("seeked", seekDone, { once: true });
+    setTimeout(seekDone, 500);
+
+    try {
+        video.currentTime = 0;
+    } catch (error) {
+        practiceSeeking = false;
+        // metadata may not be ready yet; play() will wait for it
+    }
+
+    const attempt = video.play();
+
+    // browsers can block autoplay with sound until the player taps once
+    if (attempt) {
+        attempt.catch(error => {
+            if (error.name === "AbortError") return;
+            document.getElementById("tutorial-tap").hidden = false;
+        });
+    }
 }
 
 
-// keep the tutorial looping over just the part that is used in the challenge
+function resumePracticeVideo() {
+
+    document.getElementById("tutorial-tap").hidden = true;
+
+    const video = document.getElementById("tutorial-video");
+    const attempt = video.play();
+
+    if (attempt) {
+        attempt.catch(() => {
+            document.getElementById("tutorial-tap").hidden = false;
+        });
+    }
+}
+
+
+function stopPracticePlayback() {
+
+    const video = document.getElementById("tutorial-video");
+
+    if (video) video.pause();
+
+    practiceStage = "idle";
+    practiceSeeking = false;
+
+    const tap = document.getElementById("tutorial-tap");
+    if (tap) tap.hidden = true;
+
+    updatePracticeUI();
+}
+
+
+function finishPracticePlayback() {
+
+    const video = document.getElementById("tutorial-video");
+
+    video.pause();
+
+    if (practiceStage === "slow") {
+        // mandatory fast play right after the slow one
+        practiceStage = "fast";
+        updatePracticeUI();
+        playPracticeVideo(1);
+        return;
+    }
+
+    // the mandatory fast play or an optional replay just ended
+    practiceStage = "done";
+
+    try {
+        video.currentTime = 0;
+    } catch (error) {
+        // ignore
+    }
+
+    updatePracticeUI();
+}
+
+
+function replayFast() {
+
+    if (practiceStage === "slow" || practiceStage === "fast") return;
+    if (practiceReplaysLeft <= 0) return;
+
+    practiceReplaysLeft--;
+    practiceStage = "replay";
+
+    updatePracticeUI();
+    playPracticeVideo(1);
+}
+
+
+function updatePracticeUI() {
+
+    const step = document.getElementById("practice-step");
+    const badge = document.getElementById("tutorial-badge");
+    const replay = document.getElementById("replay-fast");
+    const start = document.getElementById("start-challenge-button");
+
+    let stepText = "GETTING READY";
+    let badgeText = "";
+
+    if (practiceStage === "slow") {
+        stepText = "WATCHING SLOW";
+        badgeText = "SLOW 0.75×";
+    } else if (practiceStage === "fast") {
+        stepText = "WATCHING FAST";
+        badgeText = "FAST 1×";
+    } else if (practiceStage === "replay") {
+        stepText = "REPLAYING FAST";
+        badgeText = "REPLAY 1×";
+    } else if (practiceStage === "done") {
+        stepText = "READY TO PRACTICE";
+    }
+
+    if (step) step.textContent = stepText;
+
+    if (badge) {
+        badge.textContent = badgeText;
+        badge.hidden = !badgeText;
+    }
+
+    if (replay) {
+        replay.disabled = practiceStage !== "done" || practiceReplaysLeft <= 0;
+        replay.textContent = practiceReplaysLeft > 0
+            ? "↻ REPLAY FAST (" + practiceReplaysLeft + " left)"
+            : "NO REPLAYS LEFT";
+    }
+
+    if (start) {
+        // mandatory slow + fast must finish before the challenge can start
+        start.disabled = !(practiceStage === "done" || practiceStage === "replay");
+    }
+}
+
+
+// stop the tutorial at the end of the part used in the challenge
 document.getElementById("tutorial-video").addEventListener("timeupdate", event => {
 
-    if (config && event.target.currentTime >= config.clip_seconds) {
-        event.target.currentTime = 0;
+    if (!config || practiceSeeking) return;
+
+    const video = event.target;
+    const limit = Math.min(config.clip_seconds, video.duration || config.clip_seconds);
+
+    if (video.currentTime < limit - 0.05) return;
+
+    if (practiceStage === "slow" || practiceStage === "fast" || practiceStage === "replay") {
+        finishPracticePlayback();
     }
 });
 
@@ -199,6 +429,13 @@ function startFromPractice() {
     if (!currentDance) {
         message.textContent =
             "The dance isn't loaded yet. Is python server.py running?";
+        return;
+    }
+
+    // the tutorial must be watched slow once and fast once before starting
+    if (practiceStage !== "done" && practiceStage !== "replay") {
+        message.textContent =
+            "Watch the dance slowly once and at fast speed once first!";
         return;
     }
 
@@ -554,6 +791,8 @@ function resetEverything() {
     roundStarted = false;
 
     document.getElementById("music-player").pause();
+
+    stopPracticePlayback();
 
     resetChallengeUI();
 

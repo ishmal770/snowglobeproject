@@ -51,7 +51,7 @@ PASS_STARS = 4
 #these videos have two dancers, left dancer = player 1 and right dancer = player 2
 DUO_DANCES = ("dance6", "dance7")
 
-#forgiving on purpose, its a booth lol
+
 PERFECT_DEG = 15
 FALLOFF_DEG = 60
 MIN_VISIBILITY = 0.35

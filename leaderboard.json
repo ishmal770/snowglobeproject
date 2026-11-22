@@ -93,5 +93,12 @@
     "accuracy": 0.3927,
     "stars": 0,
     "time": "2026-11-22T11:00:24"
+  },
+  {
+    "pair": "test",
+    "dance": "dance6",
+    "accuracy": 0.5866,
+    "stars": 1,
+    "time": "2026-11-22T11:24:43"
   }
 ]
