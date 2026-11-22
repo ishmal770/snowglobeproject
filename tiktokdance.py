@@ -112,7 +112,17 @@ def find_model():
         matches = sorted(SCRIPT_DIR.glob(pattern))
         if matches:
             return matches[0]
-    raise FileNotFoundError(f"No pose_landmarker_*.task file found in {SCRIPT_DIR}")
+    #nothing on disk (e.g. the build step didn't run): download the official lite model once
+    url = ("https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
+           "pose_landmarker_lite/float16/latest/pose_landmarker_lite.task")
+    dest = SCRIPT_DIR / "pose_landmarker_lite.task"
+    print("No pose model found, downloading lite model...")
+    from urllib.request import urlopen
+    with urlopen(url, timeout=90) as response, dest.open("wb") as output:
+        shutil.copyfileobj(response, output)
+    if dest.stat().st_size < 1_000_000:
+        raise FileNotFoundError(f"Downloaded pose model looks broken: {dest}")
+    return dest
 
 
 def shrink(frame, max_side=DETECT_MAX_SIDE):
