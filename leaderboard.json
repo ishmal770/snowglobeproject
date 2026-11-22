@@ -100,5 +100,19 @@
     "accuracy": 0.5866,
     "stars": 1,
     "time": "2026-11-22T11:24:43"
+  },
+  {
+    "pair": "test",
+    "dance": "dance10",
+    "accuracy": 0.3582,
+    "stars": 0,
+    "time": "2026-11-22T11:38:56"
+  },
+  {
+    "pair": "test",
+    "dance": "dance10",
+    "accuracy": 0.6741,
+    "stars": 2,
+    "time": "2026-11-22T11:40:03"
   }
 ]

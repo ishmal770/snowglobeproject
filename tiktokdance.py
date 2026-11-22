@@ -44,9 +44,9 @@ NORMAL_ROUNDS = 1
 MAX_EXTRA_REPLAYS = 3
 SLOW_SPEED = 0.75
 
-#80% = 4 stars, 4 stars to pass
+#3 stars (70%+) is enough to pass and unlock another dance
 STAR_THRESHOLDS = [0.50, 0.60, 0.70, 0.80, 0.90]
-PASS_STARS = 4
+PASS_STARS = 3
 
 #these videos have two dancers, left dancer = player 1 and right dancer = player 2
 DUO_DANCES = ("dance6", "dance7")
@@ -63,7 +63,8 @@ GOOD_SCORE = 0.80
 STAR_FLY_SECONDS = 1.2
 
 #smaller picture into mediapipe = way faster
-DETECT_MAX_SIDE = 640
+#480 with the lite model is ~3x faster than the heavy model at 640
+DETECT_MAX_SIDE = 480
 
 H = 480
 TOP = 80
@@ -105,11 +106,15 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 
 
 def find_model():
-    matches = sorted(SCRIPT_DIR.glob("pose_landmarker_heavy*.task"))
-    if not matches:
-        raise FileNotFoundError(
-            f"No pose_landmarker_heavy*.task file found in {SCRIPT_DIR}")
-    return matches[0]
+    #lite first: live scoring feels much more responsive than the heavy model
+    for pattern in ("pose_landmarker_lite*.task",
+                    "pose_landmarker_full*.task",
+                    "pose_landmarker_heavy*.task"):
+        matches = sorted(SCRIPT_DIR.glob(pattern))
+        if matches:
+            return matches[0]
+    raise FileNotFoundError(
+        f"No pose_landmarker_*.task file found in {SCRIPT_DIR}")
 
 
 def shrink(frame, max_side=DETECT_MAX_SIDE):
@@ -550,7 +555,7 @@ def draw_star(img, cx, cy, r, color, filled=True):
     cv2.polylines(img, [pts], True, (0, 0, 0) if filled else color, 2)
 
 
-def draw_star_row(img, cx, cy, count, r=16, gap=40):
+def draw_star_row(img, cx, cy, count, r=24, gap=52):
     start = cx - 2 * gap
     for i in range(5):
         if i < count:
@@ -560,12 +565,13 @@ def draw_star_row(img, cx, cy, count, r=16, gap=40):
 
 
 def draw_skeleton(frame, landmarks, color):
+    #dots only (no connecting lines) so the body is not hidden by a stick figure
     h, w = frame.shape[:2]
-    pts = {i: (int(l.x * w), int(l.y * h)) for i, l in enumerate(landmarks)}
-    for a, b in BODY_PARTS:
-        cv2.line(frame, pts[a], pts[b], color, 3, cv2.LINE_AA)
-    for p in pts.values():
-        cv2.circle(frame, p, 5, color, -1)
+    radius = max(6, int(h / 80))
+    for l in landmarks:
+        p = (int(l.x * w), int(l.y * h))
+        cv2.circle(frame, p, radius + 3, (0, 0, 0), -1, cv2.LINE_AA)
+        cv2.circle(frame, p, radius, color, -1, cv2.LINE_AA)
 
 
 def compose(ref_frame, cam_disp):
@@ -843,13 +849,13 @@ def build_challenge_frame(disp, live, inst, present, hits, star_fx, elapsed, now
         x = (44 if fx["s"] == 0 else SIDE + CAM_W + 26) + fx["dx"]
         y = TOP + H - 16 - int(age * (H - 32))
         fade = 1 - age ** 2
-        draw_star(frame, x, y, 11, tuple(int(c * fade) for c in (0, 215, 255)), True)
+        draw_star(frame, x, y, 20, tuple(int(c * fade) for c in (0, 215, 255)), True)
 
     #top bar: each player's name, score and stars, challenge label in the middle
     for s in (0, 1):
         cx = SIDE + CAM_W // 4 + s * (CAM_W // 2)
         text_center(frame, f"{PLAYER_LABELS[s]} {live[s] * 100:.0f}%", 32, 0.8, colors[s], 2, x_center=cx)
-        draw_star_row(frame, cx, 60, stars_for(live[s]), r=11, gap=28)
+        draw_star_row(frame, cx, 60, stars_for(live[s]), r=17, gap=38)
     cx = fw // 2
     if int(elapsed * 2) % 2 == 0:
         cv2.circle(frame, (cx - 95, 24), 8, (0, 0, 255), -1)
@@ -954,7 +960,7 @@ def make_photo(best_frame, pair_name, accs, pair_acc, stars, passed):
     cv2.line(img, (CAM_W // 2, 0), (CAM_W // 2, H), (255, 255, 255), 1)
     banner = img[H - 120:H]
     img[H - 120:H] = cv2.addWeighted(banner, 0.35, np.zeros_like(banner), 0.65, 0)
-    draw_star_row(img, CAM_W // 2, 35, stars, r=16, gap=38)
+    draw_star_row(img, CAM_W // 2, 40, stars, r=30, gap=62)
     title = "PASSED!" if passed else "TRY AGAIN"
     text_center(img, title, 90, 1.2, (0, 255, 0) if passed else (200, 200, 200), 3)
     text_center(img, pair_name, 125, 0.7, (255, 255, 255), 2)

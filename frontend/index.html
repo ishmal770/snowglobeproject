@@ -236,6 +236,7 @@
 
                     <div class="dance-camera">
                         <canvas id="player1-canvas"></canvas>
+                        <div class="player-star" id="p1-star" aria-hidden="true">★</div>
                     </div>
 
                 </div>
@@ -249,7 +250,7 @@
                     <div class="olaf-container">
 
                         <img
-                            src="assets/characters/olaf.png"
+                            src="assets/characters/olaf.svg"
                             alt="Olaf"
                             id="olaf-image"
                         >
@@ -268,6 +269,7 @@
 
                     <div class="dance-camera">
                         <canvas id="player2-canvas"></canvas>
+                        <div class="player-star" id="p2-star" aria-hidden="true">★</div>
                     </div>
 
                 </div>
@@ -282,16 +284,17 @@
     <section id="victory" class="screen">
         <div class="page-content">
 
-            <div class="celebration">🎉 ❄️ 🎉</div>
+            <div class="celebration">🎉 ⭐ 🎉</div>
 
-            <h1>CONGRATULATIONS!</h1>
+            <h1>ROUND COMPLETE!</h1>
 
-            <h2>YOU SAVED OLAF!</h2>
+            <h2>GREAT DANCING!</h2>
 
             <div id="victory-stars">⭐⭐⭐</div>
 
             <p id="final-score">Your dance accuracy: 95%</p>
             <p id="final-detail"></p>
+            <p id="final-rank" class="rank-message"></p>
 
             <div class="instruction-box">
                 <h2>YOUR SCORE IS ON THE LEADERBOARD</h2>
@@ -306,9 +309,15 @@
                 <ol id="leaderboard-list"></ol>
             </div>
 
-            <button onclick="restartGame()">
-                PLAY AGAIN ↻
-            </button>
+            <div class="result-actions">
+                <button onclick="nextDance()">
+                    DANCE ANOTHER →
+                </button>
+
+                <button class="olaf-button" onclick="freeOlaf()">
+                    CONTINUE TO FREE OLAF ❄️
+                </button>
+            </div>
         </div>
     </section>
 
@@ -324,13 +333,50 @@
 
             <p id="failure-score">Your dance accuracy: 40%</p>
             <p id="failure-detail"></p>
+            <p id="failure-rank" class="rank-message"></p>
 
             <p>Don't give up! Practice your moves and try again.</p>
 
             <img id="failure-photo" class="result-photo" alt="Your dance photo" hidden>
 
+            <div class="leaderboard">
+                <h2>🏆 LEADERBOARD</h2>
+                <ol id="failure-leaderboard-list"></ol>
+            </div>
+
             <button onclick="retryGame()">
                 ↻ TRY AGAIN
+            </button>
+
+        </div>
+    </section>
+
+
+    <section id="finale" class="screen">
+        <div class="page-content">
+
+            <div class="celebration">🎉 ⛄ ❄️ 🎉</div>
+
+            <h1>CONGRATULATIONS!</h1>
+
+            <h2>YOU SAVED OLAF!</h2>
+
+            <img src="assets/characters/olaf.svg"
+                 class="finale-olaf"
+                 alt="Olaf is free!">
+
+            <div id="finale-stars">⭐⭐⭐</div>
+
+            <p id="finale-score"></p>
+            <p id="finale-detail"></p>
+
+            <div class="leaderboard">
+                <h2>🏆 FINAL LEADERBOARD</h2>
+                <ol id="finale-leaderboard-list"></ol>
+            </div>
+
+            <button onclick="restartGame()">
+                PLAY AGAIN ↻
             </button>
 
         </div>

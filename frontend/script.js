@@ -17,15 +17,13 @@ let roundStarted = false;
 let cameraStarted = false;
 let lastHits = [0, 0];
 let lastStarTime = [0, 0];
+let lastResult = null;
 
 // practice room playback: mandatory slow once, fast once, then 2 fast replays
 let practiceStage = "idle"; // idle | slow | fast | replay | done
 let practiceReplaysLeft = 2;
 let practiceSeeking = false;
 
-const BODY = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24],
-              [23, 25], [25, 27], [27, 29], [29, 31], [27, 31], [24, 26], [26, 28], [28, 30],
-              [30, 32], [28, 32]];
 const PLAYER_COLORS = ["#00b4ff", "#ffb400"];
 
 
@@ -631,15 +629,19 @@ function updateChallengeUI(state) {
     state.players.forEach((player, index) => {
 
         const panel = document.getElementById("p" + (index + 1) + "-panel");
+        const title = document.getElementById("p" + (index + 1) + "-title");
+        const star = document.getElementById("p" + (index + 1) + "-star");
 
-        document.getElementById("p" + (index + 1) + "-title").textContent =
+        title.textContent =
             "PLAYER " + (index + 1) + " · " + Math.round(player.live * 100) + "%";
 
-        // green = nailing it, yellow = ok, red = off, grey = can't see them
+        // gold = above the 80% "good frame" threshold
+        const hitting = player.present && player.now >= state.good_score;
+
         let quality = "q-idle";
 
         if (player.present) {
-            if (player.now >= state.good_score) quality = "q-good";
+            if (hitting) quality = "q-good";
             else if (player.now >= 0.5) quality = "q-ok";
             else quality = "q-bad";
         }
@@ -647,7 +649,10 @@ function updateChallengeUI(state) {
         panel.classList.remove("q-good", "q-ok", "q-bad", "q-idle");
         panel.classList.add(quality);
 
-        // a star floats up every time they match a moment well
+        // big star stays around the player while they keep hitting good frames
+        if (star) star.classList.toggle("active", hitting);
+
+        // a big star flies up every time they match a compared frame well
         const now = performance.now();
 
         if (player.hits > lastHits[index] && now - lastStarTime[index] > 200) {
@@ -665,11 +670,11 @@ function spawnStar(panel, side) {
     const star = document.createElement("span");
 
     star.className = "star-pop " + (side === 0 ? "left" : "right");
-    star.textContent = "⭐";
+    star.textContent = "★";
 
     panel.appendChild(star);
 
-    setTimeout(() => star.remove(), 1300);
+    setTimeout(() => star.remove(), 1400);
 }
 
 
@@ -687,11 +692,18 @@ function resetChallengeUI() {
     ["p1-panel", "p2-panel"].forEach(id => {
         document.getElementById(id).classList.remove("q-good", "q-ok", "q-bad", "q-idle");
     });
+
+    ["p1-star", "p2-star"].forEach(id => {
+        const star = document.getElementById(id);
+        if (star) star.classList.remove("active");
+    });
 }
 
 
 // SHOW THE RESULT FROM THE SERVER
 function showResults(result) {
+
+    lastResult = result;
 
     const percent = Math.round(result.pair_accuracy * 100);
 
@@ -699,9 +711,11 @@ function showResults(result) {
         "Player 1: " + Math.round(result.accuracies[0] * 100) + "%  •  Player 2: " +
         Math.round(result.accuracies[1] * 100) + "%";
 
+    const rankText = result.rank ? "Team rank: #" + result.rank : "";
+
     const photo = API + result.photo_url;
 
-    // Success needs enough stars (the server decides)
+    // 3+ stars passes and unlocks another dance / freeing Olaf
     if (result.passed) {
 
         document.getElementById("ice-overlay").style.opacity = 0;
@@ -713,6 +727,7 @@ function showResults(result) {
             "Your dance accuracy: " + percent + "%";
 
         document.getElementById("final-detail").textContent = detail;
+        document.getElementById("final-rank").textContent = rankText;
 
         document.getElementById("submit-message").textContent =
             result.new_personal_best
@@ -733,12 +748,15 @@ function showResults(result) {
             "Your dance accuracy: " + percent + "%";
 
         document.getElementById("failure-detail").textContent = detail;
+        document.getElementById("failure-rank").textContent = rankText;
 
         const failurePhoto = document.getElementById("failure-photo");
         failurePhoto.src = photo;
         failurePhoto.hidden = false;
 
         goToPage("failure");
+
+        displayLeaderboard();
     }
 }
 
@@ -746,19 +764,32 @@ function showResults(result) {
 // DISPLAY LEADERBOARD (kept by the game server)
 async function displayLeaderboard() {
 
-    const list = document.getElementById("leaderboard-list");
-
-    list.innerHTML = "";
-
     let entries = [];
 
     try {
         const response = await fetch(API + "/api/leaderboard?limit=10");
         entries = await response.json();
     } catch (error) {
-        list.innerHTML = "<li>Leaderboard unavailable.</li>";
+        ["leaderboard-list", "failure-leaderboard-list", "finale-leaderboard-list"].forEach(id => {
+            const list = document.getElementById(id);
+            if (list) list.innerHTML = "<li>Leaderboard unavailable.</li>";
+        });
         return;
     }
+
+    renderLeaderboard("leaderboard-list", entries);
+    renderLeaderboard("failure-leaderboard-list", entries);
+    renderLeaderboard("finale-leaderboard-list", entries);
+}
+
+
+function renderLeaderboard(listId, entries) {
+
+    const list = document.getElementById(listId);
+
+    if (!list) return;
+
+    list.innerHTML = "";
 
     if (entries.length === 0) {
 
@@ -772,7 +803,8 @@ async function displayLeaderboard() {
         const item = document.createElement("li");
 
         item.textContent =
-            entry.pair + " — " + Math.round(entry.accuracy * 100) + "%";
+            entry.pair + " — " + Math.round(entry.accuracy * 100) + "% " +
+            "⭐".repeat(entry.stars || 0);
 
         if (entry.pair.toLowerCase() === teamName.toLowerCase()) {
             item.className = "me";
@@ -781,6 +813,39 @@ async function displayLeaderboard() {
         list.appendChild(item);
 
     });
+}
+
+
+// PASSED A DANCE: PRACTICE A NEW ONE
+function nextDance() {
+
+    resetEverything();
+
+    currentDance = null;
+
+    goToPage("practice-intro");
+}
+
+
+// PASSED A DANCE: FINISH THE STORY AND FREE OLAF
+function freeOlaf() {
+
+    if (lastResult) {
+
+        document.getElementById("finale-stars").textContent =
+            "⭐".repeat(lastResult.stars);
+
+        document.getElementById("finale-score").textContent =
+            "Final dance accuracy: " + Math.round(lastResult.pair_accuracy * 100) + "%";
+
+        document.getElementById("finale-detail").textContent =
+            "Player 1: " + Math.round(lastResult.accuracies[0] * 100) + "%  •  Player 2: " +
+            Math.round(lastResult.accuracies[1] * 100) + "%";
+    }
+
+    goToPage("finale");
+
+    displayLeaderboard();
 }
 
 
@@ -809,6 +874,11 @@ function restartGame() {
     resetEverything();
 
     currentDance = null;
+    lastResult = null;
+    teamName = "";
+
+    const nameInput = document.getElementById("team-name");
+    if (nameInput) nameInput.value = "";
 
     goToPage("welcome");
 }
@@ -819,7 +889,7 @@ function retryGame() {
 
     resetEverything();
 
-    goToPage("tutorial");
+    goToPage("practice-intro");
 }
 
 
@@ -896,29 +966,25 @@ function drawSkeleton(context, playerIndex, offsetX, width, height) {
     if (!landmarks) return;
 
     const color = PLAYER_COLORS[playerIndex];
-    const point = index => [landmarks[index][0] * width - offsetX, landmarks[index][1] * height];
+    const radius = Math.max(5, height / 85);
 
-    context.strokeStyle = color;
-    context.fillStyle = color;
-    context.lineWidth = Math.max(3, height / 120);
-    context.lineCap = "round";
-
-    BODY.forEach(([a, b]) => {
-
-        if (landmarks[a][2] < 0.3 || landmarks[b][2] < 0.3) return;
-
-        context.beginPath();
-        context.moveTo(...point(a));
-        context.lineTo(...point(b));
-        context.stroke();
-    });
-
+    // dots only, no connecting lines
     for (let index = 11; index <= 32; index++) {
 
         if (landmarks[index][2] < 0.3) continue;
 
+        const x = landmarks[index][0] * width - offsetX;
+        const y = landmarks[index][1] * height;
+
+        // black outline keeps the dots visible on light and dark backgrounds
         context.beginPath();
-        context.arc(...point(index), Math.max(4, height / 100), 0, Math.PI * 2);
+        context.arc(x, y, radius + 3, 0, Math.PI * 2);
+        context.fillStyle = "rgba(0, 0, 0, 0.8)";
+        context.fill();
+
+        context.beginPath();
+        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.fillStyle = color;
         context.fill();
     }
 }
