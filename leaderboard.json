@@ -1,0 +1,90 @@
+[
+  {
+    "pair": "Elsa & Anna",
+    "dance": "dance2",
+    "accuracy": 0.0,
+    "stars": 0,
+    "time": "2026-11-21T18:53:45"
+  },
+  {
+    "pair": "isha",
+    "dance": "dance2",
+    "accuracy": 0.0,
+    "stars": 0,
+    "time": "2026-11-21T18:57:20"
+  },
+  {
+    "pair": "isha & isha",
+    "dance": "dance2",
+    "accuracy": 0.1513,
+    "stars": 0,
+    "time": "2026-11-21T19:02:05"
+  },
+  {
+    "pair": "ishamalla",
+    "dance": "dance2",
+    "accuracy": 0.5835,
+    "stars": 1,
+    "time": "2026-11-21T19:17:18"
+  },
+  {
+    "pair": "a and s",
+    "dance": "dance2",
+    "accuracy": 0.7557,
+    "stars": 3,
+    "time": "2026-11-21T19:19:30"
+  },
+  {
+    "pair": "test2",
+    "dance": "dance2",
+    "accuracy": 0.8102,
+    "stars": 4,
+    "time": "2026-11-21T19:32:48"
+  },
+  {
+    "pair": "bob",
+    "dance": "dance2",
+    "accuracy": 0.7486,
+    "stars": 3,
+    "time": "2026-11-21T19:38:45"
+  },
+  {
+    "pair": "a & k",
+    "dance": "dance2",
+    "accuracy": 0.7284,
+    "stars": 3,
+    "time": "2026-11-21T19:43:21"
+  },
+  {
+    "pair": "a & S R2",
+    "dance": "dance2",
+    "accuracy": 0.7667,
+    "stars": 3,
+    "time": "2026-11-21T19:44:49"
+  },
+  {
+    "pair": "s & i test 3",
+    "dance": "dance5",
+    "accuracy": 0.7336,
+    "time": "2026-11-21T19:59:05"
+  },
+  {
+    "pair": "ariana & nikoo",
+    "dance": "dance1",
+    "accuracy": 0.7329,
+    "time": "2026-11-21T20:01:11"
+  },
+  {
+    "pair": "i & s",
+    "dance": "dance3",
+    "accuracy": 0.7103,
+    "time": "2026-11-21T20:37:26"
+  },
+  {
+    "pair": "est",
+    "dance": "dance3",
+    "accuracy": 0.0,
+    "stars": 0,
+    "time": "2026-11-22T02:20:17"
+  }
+]
