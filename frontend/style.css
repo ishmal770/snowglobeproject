@@ -1656,7 +1656,137 @@ input {
     #welcome .play-button { font-size: 20px; padding: 14px 50px; }
 }
 
-/* anyone who has motion turned off won't see the animation */
+/* =========================
+   HOW TO PLAY PAGE
+========================= */
+
+#instructions {
+    padding: 20px;
+}
+
+.how-layout {
+    width: 100%;
+    max-width: 1800px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: clamp(10px, 2vw, 40px);
+    align-items: center;
+}
+
+.how-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(10px, 3vh, 40px);
+}
+
+.how-title {
+    width: min(100%, 44vw);
+    height: auto;
+    max-height: 28vh;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+.how-cast {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: clamp(10px, 2.5vw, 44px);
+    transform: translateY(-9vh);
+}
+
+/* Elsa and Anna */
+.how-char {
+    width: min(19vw, 40vh);
+    height: auto;
+    object-fit: contain;
+    image-rendering: pixelated;
+    transform-origin: bottom center;
+    animation: how-sway 3s ease-in-out infinite;
+    filter:
+        drop-shadow(7px 0 0 #fff)
+        drop-shadow(-7px 0 0 #fff)
+        drop-shadow(0 7px 0 #fff)
+        drop-shadow(0 -7px 0 #fff);
+}
+
+/* Olaf: struggling in the ice */
+.how-olaf {
+    width: min(15vw, 32vh);
+    animation: olaf-struggle 1.1s ease-in-out infinite;
+}
+
+.how-cast .how-char:last-child {
+    animation-delay: 1.2s;
+}
+
+@keyframes how-sway {
+    0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+    50%      { transform: translateY(-12px) rotate(2deg); }
+}
+
+@keyframes olaf-struggle {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    10%  { transform: translate(-8px, 0) rotate(-6deg); }
+    20%  { transform: translate(8px, 0) rotate(6deg); }
+    30%  { transform: translate(-8px, 0) rotate(-6deg); }
+    40%  { transform: translate(8px, 0) rotate(6deg); }
+    55%  { transform: translate(0, -34px) rotate(0deg) scale(1.06); }
+    70%  { transform: translate(0, 0) rotate(0deg) scale(1); }
+    80%  { transform: translate(-5px, 0) rotate(-3deg); }
+    90%  { transform: translate(5px, 0) rotate(3deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.how-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.how-scroll {
+    height: 72vh;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.next-button {
+    font-size: 24px;
+    letter-spacing: 3px;
+    padding: 14px 60px;
+    margin: 14px auto 0;
+    border-radius: 50px;
+    border: 4px solid #263c61;
+    background: #668fc9;
+    box-shadow: 0 6px 0 #263c61;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.next-button:hover {
+    background: #7ba2d9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 0 #263c61;
+}
+
+.next-button:active {
+    transform: translateY(5px);
+    box-shadow: 0 1px 0 #263c61;
+}
+
+/* tablets and phones: stack everything */
+@media (max-width: 800px) {
+    .how-layout  { grid-template-columns: 1fr; }
+    .how-title   { width: 80%; max-height: none; }
+    .how-cast    { transform: none; }
+    .how-char    { width: 26vw; }
+    .how-olaf    { width: 20vw; }
+    .how-scroll  { height: auto; width: 100%; }
+    .next-button { font-size: 20px; padding: 12px 45px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .cast-img { animation: none; }
+    .how-char, .cast-img { animation: none; }
 }
