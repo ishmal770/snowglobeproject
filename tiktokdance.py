@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import threading
 import time
-import wave
 from datetime import datetime
 from pathlib import Path
 
@@ -34,9 +33,8 @@ VERSION = "test build v5"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DANCE_DIR = SCRIPT_DIR / "dances_videos"
-DATA_DIR = Path(os.environ.get("SNOWGLOBE_DATA_DIR", SCRIPT_DIR)).resolve()
-PHOTO_DIR = DATA_DIR / "photos"
-LEADERBOARD_FILE = DATA_DIR / "leaderboard.json"
+PHOTO_DIR = SCRIPT_DIR / "photos"
+LEADERBOARD_FILE = SCRIPT_DIR / "leaderboard.json"
 
 CAMERA_INDEX = 0
 #how long each round is, learning and challenge
@@ -46,12 +44,12 @@ NORMAL_ROUNDS = 1
 MAX_EXTRA_REPLAYS = 3
 SLOW_SPEED = 0.75
 
-#3 stars (70%+) is enough to pass and unlock another dance
+#80% = 4 stars, 4 stars to pass
 STAR_THRESHOLDS = [0.50, 0.60, 0.70, 0.80, 0.90]
-PASS_STARS = 3
+PASS_STARS = 4
 
 #these videos have two dancers, left dancer = player 1 and right dancer = player 2
-DUO_DANCES = ("dance6", "dance7")
+DUO_DANCES = ("dance6", "dance7", )
 
 
 PERFECT_DEG = 15
@@ -65,8 +63,7 @@ GOOD_SCORE = 0.80
 STAR_FLY_SECONDS = 1.2
 
 #smaller picture into mediapipe = way faster
-#480 with the lite model is ~3x faster than the heavy model at 640
-DETECT_MAX_SIDE = 480
+DETECT_MAX_SIDE = 640
 
 H = 480
 TOP = 80
@@ -108,15 +105,11 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 
 
 def find_model():
-    #lite first: live scoring feels much more responsive than the heavy model
-    for pattern in ("pose_landmarker_lite*.task",
-                    "pose_landmarker_full*.task",
-                    "pose_landmarker_heavy*.task"):
-        matches = sorted(SCRIPT_DIR.glob(pattern))
-        if matches:
-            return matches[0]
-    raise FileNotFoundError(
-        f"No pose_landmarker_*.task file found in {SCRIPT_DIR}")
+    matches = sorted(SCRIPT_DIR.glob("pose_landmarker_heavy*.task"))
+    if not matches:
+        raise FileNotFoundError(
+            f"No pose_landmarker_heavy*.task file found in {SCRIPT_DIR}")
+    return matches[0]
 
 
 def shrink(frame, max_side=DETECT_MAX_SIDE):
@@ -229,25 +222,6 @@ def load_dances():
     if not dances:
         raise FileNotFoundError(f"No dance*.mp4 videos found in {DANCE_DIR}")
     return dances
-
-
-def dance_source_seconds(dance):
-    cap = cv2.VideoCapture(str(dance.video))
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-    cap.release()
-    video_seconds = frames / fps if frames > 0 else CLIP_SECONDS
-
-    audio_seconds = None
-    if dance.audio and dance.audio.suffix.lower() == ".wav" and dance.audio.is_file():
-        try:
-            with wave.open(str(dance.audio), "rb") as audio_file:
-                audio_seconds = audio_file.getnframes() / audio_file.getframerate()
-        except (OSError, wave.Error, ZeroDivisionError):
-            audio_seconds = None
-
-    return min(CLIP_SECONDS, video_seconds,
-               audio_seconds if audio_seconds and audio_seconds > 0 else video_seconds)
 
 
 def find_ffmpeg():
@@ -473,15 +447,14 @@ def stars_for(acc):
 
 
 class ClipPlayer:
-    def __init__(self, path, speed=1.0, read_frames=True, duration_seconds=None):
+    def __init__(self, path, speed=1.0, read_frames=True):
         self.cap = cv2.VideoCapture(str(path))
         if not self.cap.isOpened():
             raise RuntimeError(f"Could not open video: {path}")
         self.fps = self.cap.get(cv2.CAP_PROP_FPS) or 30
         self.speed = speed
         self.read_frames = read_frames
-        duration = CLIP_SECONDS if duration_seconds is None else min(CLIP_SECONDS, duration_seconds)
-        self.max_frames = int(duration * self.fps)
+        self.max_frames = int(CLIP_SECONDS * self.fps)
         self.index = -1
         self.frame = None
         self.start = None
@@ -577,7 +550,7 @@ def draw_star(img, cx, cy, r, color, filled=True):
     cv2.polylines(img, [pts], True, (0, 0, 0) if filled else color, 2)
 
 
-def draw_star_row(img, cx, cy, count, r=24, gap=52):
+def draw_star_row(img, cx, cy, count, r=16, gap=40):
     start = cx - 2 * gap
     for i in range(5):
         if i < count:
@@ -587,13 +560,12 @@ def draw_star_row(img, cx, cy, count, r=24, gap=52):
 
 
 def draw_skeleton(frame, landmarks, color):
-    #dots only (no connecting lines) so the body is not hidden by a stick figure
     h, w = frame.shape[:2]
-    radius = max(6, int(h / 80))
-    for l in landmarks:
-        p = (int(l.x * w), int(l.y * h))
-        cv2.circle(frame, p, radius + 3, (0, 0, 0), -1, cv2.LINE_AA)
-        cv2.circle(frame, p, radius, color, -1, cv2.LINE_AA)
+    pts = {i: (int(l.x * w), int(l.y * h)) for i, l in enumerate(landmarks)}
+    for a, b in BODY_PARTS:
+        cv2.line(frame, pts[a], pts[b], color, 3, cv2.LINE_AA)
+    for p in pts.values():
+        cv2.circle(frame, p, 5, color, -1)
 
 
 def compose(ref_frame, cam_disp):
@@ -835,8 +807,7 @@ def quality_color(score, present):
     return BAD_COLOR
 
 
-def build_challenge_frame(disp, live, inst, present, hits, star_fx, elapsed, now,
-                          round_seconds=CLIP_SECONDS):
+def build_challenge_frame(disp, live, inst, present, hits, star_fx, elapsed, now):
     #everything goes in the margins around the webcam so it never covers the mediapipe dots
     fw = CAM_W + 2 * SIDE
     fh = TOP + H + BOTTOM
@@ -872,21 +843,21 @@ def build_challenge_frame(disp, live, inst, present, hits, star_fx, elapsed, now
         x = (44 if fx["s"] == 0 else SIDE + CAM_W + 26) + fx["dx"]
         y = TOP + H - 16 - int(age * (H - 32))
         fade = 1 - age ** 2
-        draw_star(frame, x, y, 20, tuple(int(c * fade) for c in (0, 215, 255)), True)
+        draw_star(frame, x, y, 11, tuple(int(c * fade) for c in (0, 215, 255)), True)
 
     #top bar: each player's name, score and stars, challenge label in the middle
     for s in (0, 1):
         cx = SIDE + CAM_W // 4 + s * (CAM_W // 2)
         text_center(frame, f"{PLAYER_LABELS[s]} {live[s] * 100:.0f}%", 32, 0.8, colors[s], 2, x_center=cx)
-        draw_star_row(frame, cx, 60, stars_for(live[s]), r=17, gap=38)
+        draw_star_row(frame, cx, 60, stars_for(live[s]), r=11, gap=28)
     cx = fw // 2
     if int(elapsed * 2) % 2 == 0:
         cv2.circle(frame, (cx - 95, 24), 8, (0, 0, 255), -1)
     text_center(frame, "CHALLENGE", 32, 0.8, (255, 255, 255), 2, x_center=cx + 10)
-    text_center(frame, f"{max(round_seconds - elapsed, 0):.0f}s", 62, 0.8, (255, 255, 255), 2, x_center=cx)
+    text_center(frame, f"{max(CLIP_SECONDS - elapsed, 0):.0f}s", 62, 0.8, (255, 255, 255), 2, x_center=cx)
 
     #bottom bar: time progress and how many good moments each player has hit
-    prog = int(CAM_W * min(elapsed / max(round_seconds, 0.01), 1))
+    prog = int(CAM_W * min(elapsed / CLIP_SECONDS, 1))
     cv2.rectangle(frame, (SIDE, TOP + H + 10), (SIDE + CAM_W, TOP + H + 20), (80, 80, 80), -1)
     cv2.rectangle(frame, (SIDE, TOP + H + 10), (SIDE + prog, TOP + H + 20), OK_COLOR, -1)
     for s in (0, 1):
@@ -898,9 +869,8 @@ def build_challenge_frame(disp, live, inst, present, hits, star_fx, elapsed, now
 def run_challenge(camera, async_det, dance, ref):
     countdown(camera, None, "CHALLENGE!")
 
-    # Stop at the end of the audio, trimming its silent one-second tail.
-    round_seconds = max(1.0, dance_source_seconds(dance) - 1.0)
-    player = ClipPlayer(dance.video, 1.0, read_frames=False, duration_seconds=round_seconds)
+    #video stays off during the challenge, only the audio plays
+    player = ClipPlayer(dance.video, 1.0, read_frames=False)
     async_det.reset()
     _, last_id = async_det.latest()
     play_audio(dance.audio)
@@ -969,8 +939,7 @@ def run_challenge(camera, async_det, dance, ref):
 
         star_fx = [f for f in star_fx if now - f["born"] < STAR_FLY_SECONDS]
         live = sums / np.maximum(scored, 1)
-        show(build_challenge_frame(disp, live, inst, present, hits, star_fx,
-                                   player.elapsed(), now, round_seconds))
+        show(build_challenge_frame(disp, live, inst, present, hits, star_fx, player.elapsed(), now))
 
     stop_audio()
     player.release()
@@ -985,7 +954,7 @@ def make_photo(best_frame, pair_name, accs, pair_acc, stars, passed):
     cv2.line(img, (CAM_W // 2, 0), (CAM_W // 2, H), (255, 255, 255), 1)
     banner = img[H - 120:H]
     img[H - 120:H] = cv2.addWeighted(banner, 0.35, np.zeros_like(banner), 0.65, 0)
-    draw_star_row(img, CAM_W // 2, 40, stars, r=30, gap=62)
+    draw_star_row(img, CAM_W // 2, 35, stars, r=16, gap=38)
     title = "PASSED!" if passed else "TRY AGAIN"
     text_center(img, title, 90, 1.2, (0, 255, 0) if passed else (200, 200, 200), 3)
     text_center(img, pair_name, 125, 0.7, (255, 255, 255), 2)
