@@ -594,3 +594,136 @@ input {
 
 }
 
+
+
+/* =========================
+   BACKEND CONNECTION ADDITIONS
+========================= */
+
+/* the live camera stream used for drawing the player halves (must stay rendered so it keeps updating) */
+.offscreen {
+    position: absolute;
+    left: -10px;
+    top: -10px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.practice-camera-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.speed-controls {
+    margin-top: 10px;
+}
+
+.speed-controls button {
+    padding: 10px 16px;
+    font-size: 14px;
+    margin: 5px;
+}
+
+#camera-status {
+    min-height: 28px;
+    font-weight: bold;
+}
+
+#name-message {
+    color: #c0392b;
+    min-height: 26px;
+    margin: 0;
+}
+
+#duo-hint {
+    background: #fff3cd;
+    border-radius: 14px;
+    padding: 10px 16px;
+    max-width: 700px;
+    margin: 10px auto;
+    font-size: 16px;
+}
+
+#duo-hint[hidden] {
+    display: none;
+}
+
+/* PLAYER PANELS: colored outline shows how well each player is matching right now */
+
+.dance-panel {
+    position: relative;
+    outline: 5px solid transparent;
+    transition: outline-color 0.2s;
+}
+
+.dance-panel.q-good { outline-color: #4cc46a; }
+.dance-panel.q-ok   { outline-color: #f2b323; }
+.dance-panel.q-bad  { outline-color: #e5534b; }
+.dance-panel.q-idle { outline-color: #aab4c4; }
+
+/* stars float up the outer edge of the panel, away from the skeleton dots */
+
+.star-pop {
+    position: absolute;
+    bottom: 22%;
+    font-size: 26px;
+    pointer-events: none;
+    animation: star-rise 1.2s ease-out forwards;
+}
+
+.star-pop.left  { left: -2px; }
+.star-pop.right { right: -2px; }
+
+@keyframes star-rise {
+    0%   { transform: translateY(0) scale(0.6); opacity: 0; }
+    15%  { opacity: 1; }
+    100% { transform: translateY(-230px) scale(1.1); opacity: 0; }
+}
+
+#time-left {
+    color: #668fc9;
+}
+
+/* OLAF: the ice melts away as the team's accuracy goes up */
+
+.olaf-container {
+    position: relative;
+}
+
+#ice-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(176, 220, 255, 0.92), rgba(255, 255, 255, 0.75));
+    backdrop-filter: blur(3px);
+    opacity: 0.85;
+    transition: opacity 0.4s;
+    pointer-events: none;
+}
+
+/* RESULTS */
+
+.result-photo {
+    display: block;
+    max-width: 100%;
+    margin: 14px auto 0;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px #9bb5d455;
+}
+
+.result-photo[hidden] {
+    display: none;
+}
+
+.leaderboard li.me {
+    font-weight: bold;
+    color: #46699e;
+}
+
+/* show each player's whole half so no body points get cropped off at the sides */
+.dance-camera canvas {
+    object-fit: contain;
+}

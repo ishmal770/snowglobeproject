@@ -1,5 +1,6 @@
 import json
 import math
+import os
 import random
 import re
 import shutil
@@ -8,6 +9,11 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
+
+#less spam in the terminal
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+os.environ.setdefault("GLOG_minloglevel", "2")
 
 import cv2
 import mediapipe as mp
@@ -41,6 +47,9 @@ SLOW_SPEED = 0.75
 #80% = 4 stars, 4 stars to pass
 STAR_THRESHOLDS = [0.50, 0.60, 0.70, 0.80, 0.90]
 PASS_STARS = 4
+
+#these videos have two dancers, left dancer = player 1 and right dancer = player 2
+DUO_DANCES = ("dance6", "dance7")
 
 #forgiving on purpose, its a booth lol
 PERFECT_DEG = 15
@@ -203,6 +212,7 @@ class Dance:
     def __init__(self, video):
         self.video = video
         self.name = video.stem
+        self.duo = self.name in DUO_DANCES
         self.audio = video.with_suffix(".mp3")
         self.audio_slow = video.with_name(video.stem + "_slow.mp3")
 
@@ -368,8 +378,23 @@ def assign_players(poses):
     return slots
 
 
+def torso_size(landmarks):
+    return abs((landmarks[23].y + landmarks[24].y) / 2 - (landmarks[11].y + landmarks[12].y) / 2)
+
+
+def assign_duo(poses):
+    #two dancers in the video: the left one is player 1, the right one is player 2
+    if len(poses) > 2:
+        poses = sorted(poses, key=torso_size, reverse=True)[:2]
+    if len(poses) == 2:
+        return sorted(poses, key=center_x)
+    return assign_players(poses)
+
+
 def load_reference(dance, detector_factory, progress=None):
-    cache = dance.video.with_name(dance.name + "_ref.npy")
+    #duo dances save one row of angles per dancer, solo dances save one row total
+    suffix = "_ref_duo.npy" if dance.duo else "_ref.npy"
+    cache = dance.video.with_name(dance.name + suffix)
     #only analyze the video once, after that we reuse the saved file
     if cache.exists():
         return np.load(cache)
@@ -380,7 +405,7 @@ def load_reference(dance, detector_factory, progress=None):
     w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     max_frames = int(CLIP_SECONDS * fps)
-    det = detector_factory()
+    det = detector_factory(2 if dance.duo else 1)
     rows = []
     #every 2nd frame is plenty, the scoring has a little slack anyway
     for i in range(0, max_frames, 2):
@@ -389,7 +414,13 @@ def load_reference(dance, detector_factory, progress=None):
             break
         cap.grab()
         poses = det.detect(frame, int(i * 1000 / fps))
-        row = pose_vector(poses[0], w, h) if poses else np.full(len(SEGMENTS), np.nan)
+        if dance.duo:
+            row = np.full((2, len(SEGMENTS)), np.nan)
+            for s, lms in enumerate(assign_duo(poses)):
+                if lms is not None:
+                    row[s] = pose_vector(lms, w, h)
+        else:
+            row = pose_vector(poses[0], w, h) if poses else np.full(len(SEGMENTS), np.nan)
         rows += [row, row]
         if progress and i % 8 == 0:
             progress(i / max_frames)
@@ -400,12 +431,14 @@ def load_reference(dance, detector_factory, progress=None):
     return arr
 
 
-def ref_candidates(ref, idx):
+def ref_candidates(ref, idx, player=0):
     out = []
     for o in TIME_SLACK_FRAMES:
         j = idx + o
-        if 0 <= j < len(ref) and not np.all(np.isnan(ref[j])):
-            out.append(ref[j])
+        if 0 <= j < len(ref):
+            row = ref[j, player] if ref.ndim == 3 else ref[j]
+            if not np.all(np.isnan(row)):
+                out.append(row)
     return out
 
 
@@ -567,6 +600,16 @@ def show(img, delay=1):
     return k
 
 
+def open_camera():
+    #on windows the default camera backend can take 10+ seconds to open, directshow is way faster
+    if os.name == "nt":
+        cam = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
+        if cam.isOpened():
+            return cam
+        cam.release()
+    return cv2.VideoCapture(CAMERA_INDEX)
+
+
 def read_cam(camera):
     ok, frame = camera.read()
     if not ok:
@@ -715,6 +758,8 @@ def play_learning_clip(camera, dance, label, speed, audio):
         disp = to_display(cam)
         text_left(disp, "YOUR CAMERA - copy the dancer!", 20, 35, 0.8)
         text_left(disp, f"{label}  {max(CLIP_SECONDS - player.elapsed(), 0):.0f}s", 20, 70, 0.7)
+        if dance.duo:
+            text_left(disp, "DUO: copy the dancer on your side", 20, 105, 0.6, (0, 215, 255))
         # split webcam and dance vid
         show(compose(player.frame, disp))
     stop_audio()
@@ -738,6 +783,9 @@ def learn_phase(camera, dance):
         lines = [("Ready for the challenge?", 1.1, (255, 255, 255)),
                  (f"{PLAYER_LABELS[0]} = LEFT side    {PLAYER_LABELS[1]} = RIGHT side", 0.8, (0, 215, 255)),
                  ("SPACE = start!", 0.9, (0, 255, 0))]
+        if dance.duo:
+            lines.insert(2, (f"{PLAYER_LABELS[0]} copies the LEFT dancer, {PLAYER_LABELS[1]} copies the RIGHT dancer",
+                             0.7, (0, 215, 255)))
         keys = {" "}
         if left > 0:
             lines.append((f"R = watch the dance again ({left} left)", 0.8, (255, 255, 255)))
@@ -829,7 +877,7 @@ def run_challenge(camera, async_det, dance, ref):
     player.start_clock()
 
     sums = np.zeros(2)
-    scored = 0
+    scored = np.zeros(2)
     hits = [0, 0]
     inst = [0.0, 0.0]
     present = [False, False]
@@ -851,20 +899,21 @@ def run_challenge(camera, async_det, dance, ref):
         if new_result:
             last_id = rid
             slots = assign_players(poses)
-            cands = ref_candidates(ref, player.index)
+            #solo dance: both copy the same dancer, duo dance: each copies the dancer on their side
+            cands = [ref_candidates(ref, player.index, s) for s in (0, 1)]
             #score both players separately
             for s in (0, 1):
-                if slots[s] is not None and cands:
+                if slots[s] is not None and cands[s]:
                     vec = pose_vector(slots[s], cam.shape[1], cam.shape[0])
-                    sims[s] = pose_similarity(vec, cands)
-            if cands:
-                sums += sims
-                scored += 1
+                    sims[s] = pose_similarity(vec, cands[s])
+                if cands[s]:
+                    sums[s] += sims[s]
+                    scored[s] += 1
             for s in (0, 1):
                 present[s] = slots[s] is not None
                 inst[s] = 0.6 * inst[s] + 0.4 * sims[s]
                 #doing well on this comparison = a star floats up their side
-                if cands and sims[s] >= GOOD_SCORE:
+                if cands[s] and sims[s] >= GOOD_SCORE:
                     hits[s] += 1
                     if now - last_spawn[s] > 0.12:
                         last_spawn[s] = now
@@ -878,7 +927,7 @@ def run_challenge(camera, async_det, dance, ref):
         #keep track of the best moment for the photo
         if new_result:
             ema = 0.8 * ema + 0.2 * (sims[0] + sims[1]) / 2
-            if scored > 10 and slots[0] is not None and slots[1] is not None and ema > best_ema:
+            if scored.max() > 10 and slots[0] is not None and slots[1] is not None and ema > best_ema:
                 best_ema = ema
                 best_frame = disp.copy()
 
@@ -889,12 +938,12 @@ def run_challenge(camera, async_det, dance, ref):
                             (0, 0, 255), 2, x_center=CAM_W // 4 + s * CAM_W // 2)
 
         star_fx = [f for f in star_fx if now - f["born"] < STAR_FLY_SECONDS]
-        live = sums / max(scored, 1)
+        live = sums / np.maximum(scored, 1)
         show(build_challenge_frame(disp, live, inst, present, hits, star_fx, player.elapsed(), now))
 
     stop_audio()
     player.release()
-    acc = sums / max(scored, 1)
+    acc = sums / np.maximum(scored, 1)
     if best_frame is None:
         best_frame = np.zeros((H, CAM_W, 3), np.uint8)
     return acc, best_frame
@@ -918,7 +967,7 @@ def make_photo(best_frame, pair_name, accs, pair_acc, stars, passed):
     path = PHOTO_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_{safe}.jpg"
     cv2.imwrite(str(path), img)
     print("Saved photo:", path)
-    return img
+    return img, path
 
 
 def results_screen(photo, entries, pair_name, new_best, passed):
@@ -945,7 +994,7 @@ def play_pair(camera, async_det, dances, ref_cache, pair_name):
         print(f"{pair_name}: P1 {accs[0]:.0%}  P2 {accs[1]:.0%}  "
               f"pair {pair_acc:.0%}  stars {stars}  passed={passed}")
 
-        photo = make_photo(best_frame, pair_name, accs, pair_acc, stars, passed)
+        photo, _ = make_photo(best_frame, pair_name, accs, pair_acc, stars, passed)
         entries, new_best = add_leaderboard_entry(pair_name, dance.name, pair_acc, stars)
         choice = results_screen(photo, entries, pair_name, new_best, passed)
         if choice == "n" and passed:
@@ -968,7 +1017,7 @@ def main():
     for d in dances:
         prepare_audio(d)
 
-    camera = cv2.VideoCapture(CAMERA_INDEX)
+    camera = open_camera()
     camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
@@ -981,7 +1030,7 @@ def main():
 
     async_det = None
     try:
-        factory = lambda: Detector(model_path, num_poses=1)
+        factory = lambda n: Detector(model_path, num_poses=n)
         ref_cache = {}
         for n, d in enumerate(dances, 1):
             ref_cache[d.name] = load_reference(
