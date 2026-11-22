@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,31 +10,32 @@
 
 <body>
 
+    <!-- PAGE 1: WELCOME -->
+        <!-- PAGE 1: WELCOME -->
     <section id="welcome" class="screen active">
         <div class="page-content">
-            <p class="subtitle">A FROZEN KINGDOM ADVENTURE</p>
-            <h1>DEFROST!</h1>
 
             <img
-            src="assets/titles/defrost.png"
-            alt="Defrost"
-            class="game-title"
+                src="assets/titles/defrost.png"
+                alt="Defrost"
+                class="game-title"
             >
 
-            <div class="characters">
-                <img src="assets/characters/elsa.png" alt:"Elsa">
-                <img src="assets/characters/anna.png" alt:"Anna">
+            <div class="cast">
+                <img src="assets/characters/elsa.png" alt="Elsa" class="cast-img cast-side">
+                <img src="assets/characters/free olaf.png" alt="Olaf" class="cast-img cast-middle">
+                <img src="assets/characters/anna.png" alt="Anna" class="cast-img cast-side">
             </div>
 
-            <p>Our kingdom has frozen! Can you save it through the power of dance?</p>
-
-            <button onclick="goToPage('instructions')">
-                START GAME →
+            <button class="play-button" onclick="goToPage('instructions')">
+                PLAY
             </button>
+
         </div>
     </section>
 
 
+    <!-- PAGE 2: INSTRUCTIONS -->
     <section id="instructions" class="screen">
         <div class="page-content">
             <h1>HOW TO PLAY</h1>
@@ -46,10 +48,10 @@
                 <p>1. Watch the dance tutorial.</p>
                 <p>2. Get ready to dance.</p>
                 <p>3. Follow the moves!</p>
-                <p>4. Earn at least 4 stars to save Olaf!</p>
+                <p>4. Earn at least 2 stars to save Olaf!</p>
             </div>
 
-            <button onclick="goToPage('practice-intro')">
+            <button onclick="goToPage('tutorial')">
                 LET'S GO →
             </button>
         </div>
@@ -64,10 +66,9 @@
             <p class="intro-time">TIME TO LEARN</p>
 
             <div class="intro-steps">
-                <p>🐢 Watch the dance <strong>once slowly</strong> at 0.75×</p>
-                <p>⚡ Then watch it <strong>once at normal speed</strong></p>
-                <p>⏱️ A 3-second countdown comes before each viewing</p>
-                <p>🔁 After that, replay it at normal speed up to <strong>3 more times</strong></p>
+                <p>🐢 Watch the dance <strong>slowly once</strong></p>
+                <p>⚡ Then watch it <strong>at fast speed once</strong></p>
+                <p>🔁 After that, replay it fast up to <strong>2 more times</strong></p>
             </div>
 
             <p class="intro-countdown">
@@ -85,32 +86,22 @@
     <section id="tutorial" class="screen">
         <div class="practice-full">
 
-            <header class="practice-header">
-                <div>
-                    <h1>PRACTICE ROOM</h1>
-                    <p class="practice-subtitle">
-                        TIME TO LEARN — watch the moves before the challenge!
-                    </p>
-                </div>
+        <h1>PRACTICE ROOM</h1>
+        <p>Watch the moves, practice together, and get ready!</p>
 
-                <p id="duo-hint" hidden>
-                    This is a DUO dance! Player 1 copies the LEFT dancer and Player 2 copies the RIGHT dancer.
-                </p>
-            </header>
+        <div class="practice-container">
 
-            <div class="practice-container">
+            <!-- LEFT: DANCE TUTORIAL -->
+            <div class="practice-panel">
+                <h2>LEARN THE DANCE</h2>
 
-                <!-- LEFT: DANCE TUTORIAL -->
-                <div class="practice-panel">
-                    <h2>
-                        LEARN THE DANCE
-                        <span id="practice-step" class="practice-step">WATCHING SLOW</span>
-                    </h2>
-
-                    <div class="tutorial-video">
-                        <video id="tutorial-video"
-                               playsinline>
-                        </video>
+                <div class="tutorial-video">
+                    <video id="tutorial-video"
+                           controls
+                           playsinline>
+                        <source src="assets/videos/dance-tutorial.mp4"
+                                type="video/mp4">
+                    </video>
 
                         <p id="tutorial-placeholder">
                             Loading your dance...
@@ -125,15 +116,11 @@
                         <div id="tutorial-badge" class="tutorial-badge">
                             SLOW 0.75×
                         </div>
-                        <div id="practice-countdown" class="practice-countdown" hidden aria-live="assertive">
-                            <span id="practice-countdown-label">GET READY</span>
-                            <strong id="practice-countdown-number">3</strong>
-                        </div>
                     </div>
 
                     <div class="speed-controls">
                         <button id="replay-fast" onclick="replayFast()" disabled>
-                            ↻ REPLAY NORMAL SPEED (<span id="replays-left">3</span> left)
+                            ↻ REPLAY FAST (<span id="replays-left">2</span> left)
                         </button>
                         <button class="back-button" onclick="newDance()">🎲 DIFFERENT DANCE</button>
                     </div>
@@ -143,54 +130,70 @@
                     </p>
                 </div>
 
-
-                <!-- RIGHT: LIVE CAMERA FROM THE GAME SERVER -->
-                <div class="practice-panel">
-                    <h2>YOUR PRACTICE CAMERA</h2>
-
-                    <div class="practice-camera-box">
-                        <img id="practice-camera" alt="Practice camera">
-                    </div>
-
-                    <p class="panel-caption">
-                        Player 1 stands on the LEFT, Player 2 on the RIGHT!
-                    </p>
-                </div>
-
+                <p class="panel-caption">
+                    Watch the moves and practice!
+                </p>
             </div>
 
-            <footer class="practice-footer">
-                <p id="camera-status">
-                    Connecting to the dance camera...
-                </p>
+            <!-- RIGHT: LIVE CAMERA PREVIEW -->
+            <div class="practice-panel">
+                <h2>YOUR PRACTICE CAMERA</h2>
 
-                <div class="practice-footer-controls">
-                    <input
-                        type="text"
-                        id="team-name"
-                        placeholder="Enter your team name"
-                        maxlength="20"
-                    >
-
-                    <button id="start-challenge-button"
-                            onclick="startFromPractice()"
-                            disabled>
-                        START CHALLENGE →
-                    </button>
-
-                    <button class="back-button"
-                            onclick="goToPage('instructions')">
-                        ← BACK
-                    </button>
+                <div class="practice-camera-box">
+                    <video id="practice-camera"
+                           autoplay
+                           playsinline
+                           muted>
+                    </video>
                 </div>
 
-                <p id="name-message"></p>
-            </footer>
+                <p class="panel-caption">
+                    Make sure both players are visible!
+                </p>
+            </div>
 
+        </div>
+
+        <p id="camera-status">
+            Allow camera access to begin practicing.
+        </p>
+
+        <button onclick="goToPage('countdown')">
+            START CHALLENGE →
+        </button>
+
+        <button class="back-button"
+                onclick="goToPage('instructions')">
+            ← BACK
+        </button>
+
+    </div>
+</section>
+
+    <!--<section id="tutorial" class="screen">
+        <div class="page-content">
+            <h1>LEARN THE DANCE!</h1>
+
+            <p>Watch the dance before attempting the challenge.</p>
+
+            <div class="video-placeholder">
+                <span>🎵</span>
+                <p>Dance Tutorial Video</p>
+                <small>Your tutorial video goes here!</small>
+            </div>
+
+            <button onclick="goToPage('countdown')">
+                I'M READY! →
+            </button>
+
+            <button class="back-button" onclick="goToPage('instructions')">
+                ← BACK
+            </button>
         </div>
     </section>
 
 
+    <!-- PAGE 4: COUNTDOWN -->
     <section id="countdown" class="screen">
         <div class="page-content">
             <p class="subtitle">GET READY!</p>
@@ -204,29 +207,32 @@
     </section>
 
 
+    <!-- PAGE 5: DANCE CHALLENGE -->
+    
     <section id="challenge" class="screen">
         <div class="challenge-page">
-        <header class="challenge-header">
-            <div class="challenge-label"><span class="challenge-live-dot" aria-hidden="true"></span> LIVE DANCE CHALLENGE <span class="challenge-live-dot" aria-hidden="true"></span></div>
-            <h1>CHALLENGE ROOM</h1>
-            <p class="challenge-subtitle">TIME TO DANCE! Match the moves and earn your stars!</p>
-        </header>
 
-        <div class="progress-container">
-            <div class="progress-label">
-                <span>DANCE ACCURACY</span>
-                <span id="time-left"></span>
-                <span id="accuracy-text">0%</span>
-            </div>
+            <h1>TIME TO DANCE!</h1>
+            <p class="challenge-subtitle">
+                Match the moves and earn your stars!
+            </p>
+
+
+            <div class="progress-container">
+
+                <div class="progress-label">
+                    <span>DANCE ACCURACY</span>
+                    <span id="time-left"></span>
+                    <span id="accuracy-text">0%</span>
+                </div>
 
             <div class="progress-bar">
                 <div id="progress-fill"></div>
             </div>
 
-            <div id="stars-display">☆ ☆ ☆ ☆ ☆</div>
-
-            <p id="challenge-message">Team accuracy: 0%</p>
-        </div>
+                <div id="stars-display">
+                    ☆ ☆ ☆ ☆ ☆
+                </div>
 
         <div id="challenge-reference" class="challenge-reference" hidden>
             <p>FOLLOW THE DANCE</p>
@@ -234,11 +240,14 @@
         </div>
 
             <div class="dance-layout">
+
+                <!-- PLAYER 1 -->
                 <div class="dance-panel" id="p1-panel">
+
                     <h2 id="p1-title">PLAYER 1</h2>
+
                     <div class="dance-camera">
                         <canvas id="player1-canvas"></canvas>
-                        <div class="player-feedback" id="p1-feedback" aria-live="polite">STEP INTO VIEW</div>
                         <div class="player-star" id="p1-star" aria-hidden="true">★</div>
                     </div>
                 </div>
@@ -246,16 +255,26 @@
                 <div class="olaf-panel">
                     <h2>HELP OLAF!</h2>
                     <div class="olaf-container">
-                        <img src="assests/characters/frozen olaf.png" alt="Olaf frozen in ice" id="olaf-image">
+
+                        <img
+                            src="assets/characters/olaf.svg"
+                            alt="Olaf"
+                            id="olaf-image"
+                        >
+
                         <div id="ice-overlay"></div>
+
                     </div>
                 </div>
 
+
+                <!-- PLAYER 2 -->
                 <div class="dance-panel" id="p2-panel">
+
                     <h2 id="p2-title">PLAYER 2</h2>
+
                     <div class="dance-camera">
                         <canvas id="player2-canvas"></canvas>
-                        <div class="player-feedback" id="p2-feedback" aria-live="polite">STEP INTO VIEW</div>
                         <div class="player-star" id="p2-star" aria-hidden="true">★</div>
                     </div>
                 </div>
@@ -263,105 +282,115 @@
         </div>
     </section>
 
+
+    <!-- PAGE 6: VICTORY -->
     <section id="victory" class="screen">
-        <div class="results-shell">
-            <header class="results-header">
-                <p class="results-kicker">ROUND COMPLETE</p>
-                <h1>GREAT DANCING</h1>
-            </header>
-            <div class="result-grid">
-                <div class="result-left">
-                    <section class="result-score-card">
-                        <p class="result-label">TEAM ACCURACY</p>
-                        <p id="final-score" class="result-score">95%</p>
-                        <p id="final-detail" class="result-detail"></p>
-                        <p id="final-rank" class="rank-message"></p>
-                        <p id="submit-message" class="result-save-message"></p>
-                    </section>
-                    <section class="leaderboard results-leaderboard">
-                        <h2>LEADERBOARD</h2>
-                        <ol id="leaderboard-list"></ol>
-                    </section>
-                </div>
-                <aside class="result-photo-panel">
-                    <p class="result-label">ROUND PHOTO</p>
-                    <img id="victory-photo" class="result-photo" alt="Your dance photo" hidden>
-                </aside>
+        <div class="page-content">
+
+            <div class="celebration">🎉 ⭐ 🎉</div>
+
+            <h1>ROUND COMPLETE!</h1>
+
+            <h2>GREAT DANCING!</h2>
+
+            <div id="victory-stars">⭐⭐⭐</div>
+
+            <p id="final-score">Your dance accuracy: 95%</p>
+            <p id="final-detail"></p>
+            <p id="final-rank" class="rank-message"></p>
+
+            <div class="instruction-box">
+                <h2>YOUR SCORE IS ON THE LEADERBOARD</h2>
+
+                <p id="submit-message"></p>
+
+                <img id="victory-photo" class="result-photo" alt="Your dance photo" hidden>
             </div>
+
+            <div class="leaderboard">
+                <h2>🏆 LEADERBOARD</h2>
+                <ol id="leaderboard-list"></ol>
+            </div>
+
             <div class="result-actions">
-                <button class="secondary-action" onclick="retryGame()">TRY AGAIN</button>
-                <button onclick="nextPlayer()">NEXT PLAYER</button>
+                <button onclick="nextDance()">
+                    DANCE ANOTHER →
+                </button>
+
+                <button class="olaf-button" onclick="freeOlaf()">
+                    CONTINUE TO FREE OLAF ❄️
+                </button>
             </div>
         </div>
     </section>
 
+    <!-- PAGE 7: FAILURE -->
     <section id="failure" class="screen">
-        <div class="results-shell">
-            <header class="results-header">
-                <p class="results-kicker">ROUND COMPLETE</p>
-                <h1>KEEP PRACTICING</h1>
-            </header>
-            <div class="result-grid">
-                <div class="result-left">
-                    <section class="result-score-card">
-                        <p class="result-label">TEAM ACCURACY</p>
-                        <p id="failure-score" class="result-score">40%</p>
-                        <p id="failure-detail" class="result-detail"></p>
-                        <p id="failure-rank" class="rank-message"></p>
-                        <p class="result-save-message">Practice the moves, then take another turn.</p>
-                    </section>
-                    <section class="leaderboard results-leaderboard">
-                        <h2>LEADERBOARD</h2>
-                        <ol id="failure-leaderboard-list"></ol>
-                    </section>
-                </div>
-                <aside class="result-photo-panel">
-                    <p class="result-label">ROUND PHOTO</p>
-                    <img id="failure-photo" class="result-photo" alt="Your dance photo" hidden>
-                </aside>
+        <div class="page-content">
+
+            <div class="celebration">❄️ 🥶 ❄️</div>
+
+            <h1>OH NO!</h1>
+
+            <h2>THE KINGDOM IS STILL FROZEN!</h2>
+
+            <p id="failure-score">Your dance accuracy: 40%</p>
+            <p id="failure-detail"></p>
+            <p id="failure-rank" class="rank-message"></p>
+
+            <p>Don't give up! Practice your moves and try again.</p>
+
+            <img id="failure-photo" class="result-photo" alt="Your dance photo" hidden>
+
+            <div class="leaderboard">
+                <h2>🏆 LEADERBOARD</h2>
+                <ol id="failure-leaderboard-list"></ol>
             </div>
-            <div class="result-actions">
-                <button class="secondary-action" onclick="retryGame()">TRY AGAIN</button>
-                <button onclick="nextPlayer()">NEXT PLAYER</button>
-            </div>
+
+            <button onclick="retryGame()">
+                ↻ TRY AGAIN
+            </button>
+
         </div>
     </section>
+
 
     <section id="finale" class="screen">
-        <div class="results-shell">
-            <header class="results-header">
-                <p class="results-kicker">GAME COMPLETE</p>
-                <h1>YOU SAVED OLAF</h1>
-            </header>
-            <div class="result-grid">
-                <div class="result-left">
-                    <section class="result-score-card">
-                        <p class="result-label">FINAL ACCURACY</p>
-                        <p id="finale-score" class="result-score"></p>
-                        <p id="finale-detail" class="result-detail"></p>
-                    </section>
-                    <section class="leaderboard results-leaderboard">
-                        <h2>FINAL LEADERBOARD</h2>
-                        <ol id="finale-leaderboard-list"></ol>
-                    </section>
-                </div>
-                <aside class="result-photo-panel">
-                    <p class="result-label">OLAF IS FREE</p>
-                    <img id="finale-photo" class="result-photo" src="assests/characters/free olaf.png" alt="Olaf is free">
-                </aside>
+        <div class="page-content">
+
+            <div class="celebration">🎉 ⛄ ❄️ 🎉</div>
+
+            <h1>CONGRATULATIONS!</h1>
+
+            <h2>YOU SAVED OLAF!</h2>
+
+            <img src="assets/characters/olaf.svg"
+                 class="finale-olaf"
+                 alt="Olaf is free!">
+
+            <div id="finale-stars">⭐⭐⭐</div>
+
+            <p id="finale-score"></p>
+            <p id="finale-detail"></p>
+
+            <div class="leaderboard">
+                <h2>🏆 FINAL LEADERBOARD</h2>
+                <ol id="finale-leaderboard-list"></ol>
             </div>
-            <div class="result-actions">
-                <button class="secondary-action" onclick="retryGame()">TRY AGAIN</button>
-                <button onclick="nextPlayer()">NEXT PLAYER</button>
-            </div>
+
+            <button onclick="restartGame()">
+                PLAY AGAIN ↻
+            </button>
+
         </div>
     </section>
+
 
     <!-- live camera stream from the game server (used to draw the two player halves) -->
     <img id="camera-source" class="offscreen" alt="">
 
     <!-- plays the dance music during the challenge -->
-    <audio id="music-player" playsinline hidden></audio>
+    <video id="music-player" playsinline hidden></video>
 
     <script src="script.js"></script>
 
