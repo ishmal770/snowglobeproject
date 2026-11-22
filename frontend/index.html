@@ -123,22 +123,6 @@
                     </div>
                     <p id="practice-step" class="panel-caption">GETTING READY</p>
                     <p id="duo-hint" class="panel-caption" hidden>Players should stand in matching left and right positions.</p>
-
-                    <div class="speed-controls">
-                        <button id="replay-fast" onclick="replayFast()" disabled>
-                            ↻ REPLAY FAST (<span id="replays-left">2</span> left)
-                        </button>
-                        <button class="back-button" onclick="newDance()">🎲 DIFFERENT DANCE</button>
-                    </div>
-
-                    <p class="panel-caption">
-                        Watch the moves and copy them!
-                    </p>
-                </div>
-
-                <p class="panel-caption">
-                    Watch the moves and practice!
-                </p>
             </div>
 
             <!-- RIGHT: LIVE CAMERA PREVIEW -->
@@ -161,22 +145,27 @@
 
         </div>
 
-        <p id="camera-status">
-            Allow camera access to begin practicing.
-        </p>
-
-        <div class="practice-footer-controls">
-            <input type="text" id="team-name" placeholder="Enter your team name" maxlength="20">
-            <button id="start-challenge-button" onclick="startFromPractice()" disabled>
-                START CHALLENGE →
-            </button>
+        <div class="practice-actions">
+            <div class="practice-action-status">
+                <p id="camera-status">Allow camera access to begin practicing.</p>
+                <p id="name-message" aria-live="polite"></p>
+            </div>
+            <div class="practice-action-buttons">
+                <div class="speed-controls">
+                    <button id="replay-fast" onclick="replayFast()" disabled>
+                        ↻ REPLAY FAST (<span id="replays-left">2</span> left)
+                    </button>
+                    <button class="back-button" onclick="newDance()">🎲 DIFFERENT DANCE</button>
+                </div>
+                <div class="practice-footer-controls">
+                    <input type="text" id="team-name" placeholder="Enter your team name" maxlength="20">
+                    <button id="start-challenge-button" onclick="startFromPractice()" disabled>
+                        START CHALLENGE →
+                    </button>
+                    <button class="back-button" onclick="goToPage('instructions')">← BACK</button>
+                </div>
+            </div>
         </div>
-        <p id="name-message" aria-live="polite"></p>
-
-        <button class="back-button"
-                onclick="goToPage('instructions')">
-            ← BACK
-        </button>
 
     </div>
 </section>

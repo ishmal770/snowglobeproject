@@ -261,11 +261,15 @@ button:disabled:hover {
 .practice-full {
     width: 100%;
     height: calc(100vh - 20px);
+    min-height: 540px;
     display: flex;
     flex-direction: column;
     gap: 10px;
     text-align: center;
 }
+
+#tutorial > .practice-full > h1 { flex: 0 0 auto; margin: 0; }
+#tutorial > .practice-full > p { flex: 0 0 auto; margin: 0; }
 
 .practice-header {
     flex: 0 0 auto;
@@ -467,6 +471,26 @@ button:disabled:hover {
     gap: 8px;
 }
 
+.practice-actions {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr);
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 4px 16px #9bb5d455;
+}
+
+.practice-action-status { text-align: left; }
+.practice-action-status p { margin: 0; }
+#camera-status { min-height: 0; font-size: 13px; color: #52688c; }
+.practice-action-buttons { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.practice-action-buttons .speed-controls { justify-content: flex-end; }
+.practice-action-buttons .practice-footer-controls { justify-content: flex-end; }
+.practice-action-buttons button { margin: 0; }
+
 .practice-footer input {
     width: 240px;
     margin: 0;
@@ -483,10 +507,11 @@ button:disabled:hover {
     margin: 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 760px) {
 
     #tutorial {
         align-items: flex-start;
+        overflow-y: auto;
     }
 
     .practice-full {
@@ -508,6 +533,12 @@ button:disabled:hover {
         flex-direction: column;
         align-items: flex-start;
     }
+
+    .practice-actions { grid-template-columns: 1fr; }
+    .practice-action-status { text-align: center; }
+    .practice-action-buttons { flex-direction: column; }
+    .practice-action-buttons .speed-controls,
+    .practice-action-buttons .practice-footer-controls { justify-content: center; }
 }
 
 
