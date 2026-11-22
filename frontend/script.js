@@ -1072,7 +1072,7 @@ function showResults(result) {
     if (result.passed) {
 
         document.getElementById("ice-overlay").style.opacity = 0;
-        document.getElementById("olaf-image").src = "assests/characters/free olaf.png";
+        document.getElementById("olaf-image").src = "assets/characters/free%20olaf.png";
 
         document.getElementById("final-score").textContent = percent + "%";
 
