@@ -139,24 +139,35 @@ class GameServer:
 
     def loop(self):
         while self.running:
-            with self.frame_lock:
-                cam = None if self.latest_cam is None else self.latest_cam.copy()
-            if cam is not None:
-                self.update(cam, time.monotonic())
-            else:
-                now = time.monotonic()
+            try:
+                self.tick()
+            except Exception as exc:  # never let the game loop thread die
+                import traceback
+                traceback.print_exc()
+                print("loop error (recovering):", exc)
                 with self.lock:
-                    if self.phase == "countdown" and now >= self.countdown_end:
-                        self.phase = "challenge"
-                        self.t0 = now
-                        self.clear_round()
-                        if self.async_det is not None:
-                            self.async_det.reset()
-                            _, self.last_id = self.async_det.latest()
-                    elif (self.phase == "challenge" and
-                          now - self.t0 >= self.round_seconds.get(self.dance, max(td.CLIP_SECONDS - 1.0, 1.0))):
-                        self.finish()
+                    if self.phase in ("countdown", "challenge"):
+                        self.phase = "idle"
             time.sleep(1 / STATE_HZ)
+
+    def tick(self):
+        with self.frame_lock:
+            cam = None if self.latest_cam is None else self.latest_cam.copy()
+        if cam is not None:
+            self.update(cam, time.monotonic())
+        else:
+            now = time.monotonic()
+            with self.lock:
+                if self.phase == "countdown" and now >= self.countdown_end:
+                    self.phase = "challenge"
+                    self.t0 = now
+                    self.clear_round()
+                    if self.async_det is not None:
+                        self.async_det.reset()
+                        _, self.last_id = self.async_det.latest()
+                elif (self.phase == "challenge" and
+                      now - self.t0 >= self.round_seconds.get(self.dance, max(td.CLIP_SECONDS - 1.0, 1.0))):
+                    self.finish()
 
     def update(self, cam, now):
         poses, rid = self.async_det.latest()
@@ -226,8 +237,16 @@ class GameServer:
         best = self.best_frame
         if best is None:
             best = np.zeros((td.H, td.CAM_W, 3), np.uint8)
-        _, photo_path = td.make_photo(best, self.pair, accs, pair_acc, stars, passed)
-        entries, new_best = td.add_leaderboard_entry(self.pair, self.dance, pair_acc, stars)
+        try:
+            _, photo_path = td.make_photo(best, self.pair, accs, pair_acc, stars, passed)
+        except Exception as exc:
+            print("make_photo failed:", exc)
+            photo_path = "none.jpg"
+        try:
+            entries, new_best = td.add_leaderboard_entry(self.pair, self.dance, pair_acc, stars)
+        except Exception as exc:
+            print("leaderboard failed:", exc)
+            entries, new_best = [], False
         ranked = td.best_per_pair(entries)
         rank = next((i + 1 for i, e in enumerate(ranked) if e["pair"].lower() == self.pair.lower()), None)
 
@@ -249,8 +268,7 @@ class GameServer:
 
     def start(self, dance_name, pair, countdown=None):
         with self.lock:
-            if self.phase in ("countdown", "challenge"):
-                return False, "a challenge is already running"
+            # a new start always replaces any old/stuck round (was causing 409)
             if dance_name is None:
                 dance_name = random.choice(list(self.dances))
             if dance_name not in self.dances:
