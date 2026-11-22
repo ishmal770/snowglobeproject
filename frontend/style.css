@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Trebuchet MS', sans-serif;
-    background: #dcecff url("assests/backgrounds/main_background.png") center / cover fixed;
+    background: #dcecff url("assets/backgrounds/main_background.png") center / cover fixed;
     color: #263c61;
 }
 
@@ -1659,35 +1659,4 @@ input {
 /* anyone who has motion turned off won't see the animation */
 @media (prefers-reduced-motion: reduce) {
     .cast-img { animation: none; }
-}
-/* Mirror the local camera like a selfie preview. */
-#practice-camera { transform: scaleX(-1); }
-.camera-privacy-note { margin: 0; color: #607084; font-size: 12px; text-align: center; }
-
-/* Clear pose dots and a visible celebration star for each player. */
-#challenge .player-feedback { top: 10px; z-index: 4; }
-#challenge .player-star {
-    position: absolute;
-    z-index: 5;
-    top: 18%;
-    left: 50%;
-    color: #ffd43b;
-    font-size: clamp(42px, 7vw, 88px);
-    line-height: 1;
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-50%, 8px) scale(.65);
-    text-shadow: 0 3px 0 #9a6812, 0 0 22px #ffe36a;
-}
-#challenge .player-star.active {
-    opacity: 1;
-    animation: player-star-hype 650ms ease-in-out infinite alternate;
-}
-@keyframes player-star-hype {
-    from { transform: translate(-50%, 8px) scale(.82) rotate(-8deg); }
-    to { transform: translate(-50%, -8px) scale(1.12) rotate(8deg); }
-}
-@media (max-width: 760px) {
-    #challenge #stars-display { font-size: 24px; letter-spacing: 2px; }
-    #challenge #challenge-message { font-size: 10px; }
 }
