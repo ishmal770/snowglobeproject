@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Secrets
+.env
+
+# Large MediaPipe AI models
+*.task
+
+# IDE
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
