@@ -58,7 +58,10 @@ p {
 /* WELCOME */
 
 #welcome {
-    background: linear-gradient(135deg, #c8e4ff, #f0e8ff, #d6f4ff);
+   background-image: url("assets/backgrounds/main_background.png");
+   background-size: cover;
+   background-position: center;
+   background-repeat: no-repeat; 
 }
 
 .characters {
@@ -797,7 +800,6 @@ input {
     object-fit: contain;
 }
 
-
 /* RESPONSIVE LAYOUT */
 @media (max-width: 700px) {
 
@@ -820,20 +822,35 @@ input {
     }
 
     .progress-container {
-    background: white;
-    width: 65%;
-    max-width: 700px;
-    margin: 0 auto 25px;
-    padding: 12px 20px;
-    border-radius: 16px;
-    box-shadow: 0 5px 20px #9bb5d455;
+        width: 65%;
+        max-width: 700px;
+        margin: 0 auto 25px;
+        padding: 12px 20px;
+    }
+
+    #stars-display {
+        font-size: 28px;
+        margin-top: 6px;
+    }
 }
 
-#stars-display {
-    font-size: 28px;
-    margin-top: 6px;
+
+/* BACKGROUND IMAGES */
+
+/* Instructions page */
+#instructions {
+    background-image: url("assets/backgrounds/main_background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
+/* Dance challenge page */
+#challenge {
+    background-image: url("assets/backgrounds/main_background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 
@@ -951,4 +968,127 @@ input {
 /* show each player's whole half so no body points get cropped off at the sides */
 .dance-camera canvas {
     object-fit: contain;
+}
+/* TITLE IMAGE */
+.game-title {
+    width: min(500px, 80%);
+    height: auto;
+    display: block;
+    margin: 0 auto 20px;
+}
+
+
+/* CHARACTER IMAGES */
+.characters {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    margin: 30px auto;
+}
+
+.characters img {
+    width: 180px;
+    height: 220px;
+    object-fit: contain;
+}
+
+/* RESPONSIVE LAYOUT */
+@media (min-width: 1024px) and (max-width: 1440px) {
+
+    .challenge-page {
+        width: 96%;
+    }
+
+    .dance-layout {
+        grid-template-columns: 1fr 0.55fr 1fr;
+        gap: 8px;
+    }
+
+    .dance-panel {
+        padding: 7px;
+    }
+
+    .dance-panel h2,
+    .olaf-panel h2 {
+        font-size: 14px;
+    }
+
+    .progress-container {
+        width: 65%;
+        max-width: 700px;
+        margin: 0 auto 25px;
+        padding: 12px 20px;
+    }
+
+    #stars-display {
+        font-size: 28px;
+        margin-top: 6px;
+    }
+}
+
+/* BACKGROUND IMAGES */
+#welcome {
+    background-image: url("assets/backgrounds/main_background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+#instructions,
+#challenge {
+    background-image: url("assets/backgrounds/main_background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Instructions page */
+#instructions {
+    background-image: url("assets/backgrounds/main_background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Dance challenge page */
+#challenge {
+    background-image: url("assets/backgrounds/main_background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+
+/* TITLE IMAGE */
+.game-title {
+    width: min(500px, 80%);
+    height: auto;
+    display: block;
+    margin: 0 auto 20px;
+}
+
+
+/* CHARACTER IMAGES */
+.characters {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    margin: 30px auto;
+}
+
+.characters img {
+    width: 180px;
+    height: 220px;
+    object-fit: contain;
+}
+
+/* BACKGROUND IMAGE FOR ALL GAME PAGES */
+.screen {
+    background-image: url("assets/backgrounds/main_background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
 }
