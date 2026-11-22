@@ -34,8 +34,9 @@ VERSION = "test build v5"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DANCE_DIR = SCRIPT_DIR / "dances_videos"
-PHOTO_DIR = SCRIPT_DIR / "photos"
-LEADERBOARD_FILE = SCRIPT_DIR / "leaderboard.json"
+DATA_DIR = Path(os.environ.get("SNOWGLOBE_DATA_DIR", SCRIPT_DIR)).resolve()
+PHOTO_DIR = DATA_DIR / "photos"
+LEADERBOARD_FILE = DATA_DIR / "leaderboard.json"
 
 CAMERA_INDEX = 0
 #how long each round is, learning and challenge

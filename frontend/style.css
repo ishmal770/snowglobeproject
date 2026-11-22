@@ -1606,3 +1606,6 @@ input {
 @media (prefers-reduced-motion: reduce) {
     .cast-img { animation: none; }
 }
+/* Mirror the local camera like a selfie preview. */
+#practice-camera { transform: scaleX(-1); }
+.camera-privacy-note { margin: 0; color: #607084; font-size: 12px; text-align: center; }

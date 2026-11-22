@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: snowglobe-api
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt && python download_pose_model.py
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --threads 16 --timeout 120
+    disk:
+      name: snowglobe-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: SNOWGLOBE_DATA_DIR
+        value: /var/data
+      - key: FRONTEND_ORIGINS
+        sync: false

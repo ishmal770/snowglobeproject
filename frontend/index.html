@@ -150,6 +150,7 @@
                 <p class="panel-caption">
                     Make sure both players are visible!
                 </p>
+                <p class="camera-privacy-note">Camera frames are sent to the scoring server during play; the app saves the result photo.</p>
             </div>
 
         </div>
@@ -387,11 +388,12 @@
 
 
     <!-- live camera stream from the game server (used to draw the two player halves) -->
-    <img id="camera-source" class="offscreen" alt="">
+    <video id="camera-source" class="offscreen" autoplay muted playsinline></video>
 
     <!-- plays the dance music during the challenge -->
     <video id="music-player" playsinline hidden></video>
 
+    <script src="config.js"></script>
     <script src="script.js"></script>
 
 </body>

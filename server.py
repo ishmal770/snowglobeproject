@@ -14,8 +14,8 @@ from flask import Flask, Response, abort, jsonify, request, send_file, send_from
 
 import tiktokdance as td
 
-HOST = "127.0.0.1"
-PORT = 5000
+HOST = "0.0.0.0"
+PORT = int(os.environ.get("PORT", "5000"))
 STREAM_WIDTH = 960
 JPEG_QUALITY = 80
 STATE_HZ = 15
@@ -35,6 +35,7 @@ def frontend_dir():
     return None
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1_500_000
 
 
 class GameServer:
@@ -45,6 +46,8 @@ class GameServer:
         self.running = True
         self.jpeg = None
         self.cap = None
+        self.latest_cam = None
+        self.initialized = False
         self.async_det = None
         self.dances = {}
         self.fps = {}
@@ -74,6 +77,8 @@ class GameServer:
         self.result = None
 
     def setup(self):
+        if self.initialized:
+            return
         model_path = td.find_model()
         self.dances = {d.name: d for d in td.load_dances()}
 
@@ -82,17 +87,6 @@ class GameServer:
         # the video's embedded soundtrack when imageio-ffmpeg is installed.
         for dance in self.dances.values():
             td.prepare_audio(dance)
-
-        self.cap = td.open_camera()
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        if not self.cap.isOpened():
-            raise RuntimeError("Could not open webcam")
-        ok, frame = self.cap.read()
-        if not ok:
-            raise RuntimeError("Camera frame failed")
-        td.set_layout(frame)
 
         factory = lambda n: td.Detector(model_path, num_poses=n)
         for name, dance in self.dances.items():
@@ -121,7 +115,8 @@ class GameServer:
         print()
 
         self.async_det = td.AsyncDetector(td.Detector(model_path, num_poses=2))
-        td.PHOTO_DIR.mkdir(exist_ok=True)
+        td.PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+        self.initialized = True
         self.start_thread()
 
     def start_thread(self):
@@ -130,34 +125,38 @@ class GameServer:
     def close(self):
         self.running = False
         time.sleep(0.2)
-        if self.cap is not None:
-            self.cap.release()
         if self.async_det is not None:
             self.async_det.close()
 
+    def submit_frame(self, frame):
+        if not self.initialized or self.async_det is None:
+            return False
+        cam = cv2.flip(frame, 1)
+        with self.frame_lock:
+            self.latest_cam = cam.copy()
+        self.async_det.submit(cam)
+        return True
+
     def loop(self):
         while self.running:
-            ok, frame = self.cap.read()
-            if not ok:
-                time.sleep(0.05)
-                continue
-            #mirror cams
-            cam = cv2.flip(frame, 1)
-            self.async_det.submit(cam)
-
-            small = cam
-            if cam.shape[1] > STREAM_WIDTH:
-                small = cv2.resize(cam, (STREAM_WIDTH, int(cam.shape[0] * STREAM_WIDTH / cam.shape[1])))
-            ok2, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
-            if ok2:
-                with self.frame_lock:
-                    self.jpeg = buf.tobytes()
-
-            self.update(cam, time.monotonic())
-
-    def get_jpeg(self):
-        with self.frame_lock:
-            return self.jpeg
+            with self.frame_lock:
+                cam = None if self.latest_cam is None else self.latest_cam.copy()
+            if cam is not None:
+                self.update(cam, time.monotonic())
+            else:
+                now = time.monotonic()
+                with self.lock:
+                    if self.phase == "countdown" and now >= self.countdown_end:
+                        self.phase = "challenge"
+                        self.t0 = now
+                        self.clear_round()
+                        if self.async_det is not None:
+                            self.async_det.reset()
+                            _, self.last_id = self.async_det.latest()
+                    elif (self.phase == "challenge" and
+                          now - self.t0 >= self.round_seconds.get(self.dance, max(td.CLIP_SECONDS - 1.0, 1.0))):
+                        self.finish()
+            time.sleep(1 / STATE_HZ)
 
     def update(self, cam, now):
         poses, rid = self.async_det.latest()
@@ -316,7 +315,11 @@ server = GameServer()
 
 @app.after_request
 def add_cors(resp):
-    resp.headers["Access-Control-Allow-Origin"] = "*"
+    origins = [value.strip() for value in os.environ.get("FRONTEND_ORIGINS", "").split(",") if value.strip()]
+    origin = request.headers.get("Origin")
+    if not origins or (origin and origin in origins):
+        resp.headers["Access-Control-Allow-Origin"] = origin if origins and origin else "*"
+        resp.headers["Vary"] = "Origin"
     resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
     resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return resp
@@ -330,15 +333,17 @@ def index():
     return send_file(SERVER_DIR / "demo.html")
 
 
-@app.get("/video_feed")
-def video_feed():
-    def gen():
-        while True:
-            frame = server.get_jpeg()
-            if frame:
-                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
-            time.sleep(1 / 30)
-    return Response(gen(), mimetype="multipart/x-mixed-replace; boundary=frame")
+@app.post("/api/frame")
+def camera_frame():
+    raw = request.get_data(cache=False)
+    if not raw or len(raw) > 1_500_000:
+        return jsonify({"error": "frame must be a JPEG under 1.5 MB"}), 413
+    frame = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if frame is None:
+        return jsonify({"error": "invalid JPEG frame"}), 400
+    if not server.submit_frame(frame):
+        return jsonify({"error": "game server is still starting"}), 503
+    return "", 204
 
 
 @app.get("/api/events")

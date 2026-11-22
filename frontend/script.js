@@ -1,9 +1,7 @@
-// GAME SERVER ADDRESS (python server.py)
-// If this page is served by the game server it uses the same address,
-// otherwise (file, live server, npm run dev) it talks to the server on port 5000.
-const API = (location.protocol.startsWith("http") && location.port === "5000")
-    ? ""
-    : "http://127.0.0.1:5000";
+// API URL is set in config.js for deployment; local development defaults to port 5000.
+const localHost = ["localhost", "127.0.0.1"].includes(location.hostname);
+const API = String(window.SNOWGLOBE_API || (localHost ? "http://" + location.hostname + ":5000" : ""))
+    .replace(/\/+$/, "");
 
 let countdownTimer;
 let introTimer = null;
@@ -15,6 +13,10 @@ let lastPhase = "idle";
 let waitingForResult = false;
 let roundStarted = false;
 let cameraStarted = false;
+let cameraStream = null;
+let frameTimer = null;
+let frameCanvas = null;
+let sendingFrame = false;
 let lastHits = [0, 0];
 let lastStarTime = [0, 0];
 let playerCombos = [0, 0];
@@ -46,6 +48,8 @@ function goToPage(pageId) {
     });
 
     document.getElementById(pageId).classList.add("active");
+
+    if (!["tutorial", "countdown", "challenge"].includes(pageId)) stopBrowserCamera();
 
     if (pageId !== "tutorial") {
         stopPracticePlayback();
@@ -541,26 +545,71 @@ function startFromPractice() {
 }
 
 
-// SHOW THE LIVE CAMERA FROM THE GAME SERVER
-function startBackendCamera() {
-
+// Request the local team's camera in the browser and send small frames to the scoring API.
+async function startBackendCamera() {
     if (cameraStarted) return;
-
-    cameraStarted = true;
-
-    const preview = document.getElementById("practice-camera");
-    const source = document.getElementById("camera-source");
-
-    preview.onerror = () => {
+    const status = document.getElementById("camera-status");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        status.textContent = "Camera access needs a supported browser and HTTPS.";
+        return;
+    }
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false
+        });
+        const preview = document.getElementById("practice-camera");
+        const source = document.getElementById("camera-source");
+        preview.srcObject = cameraStream;
+        source.srcObject = cameraStream;
+        await Promise.all([preview.play(), source.play()]);
+        cameraStarted = true;
+        frameCanvas = document.createElement("canvas");
+        status.textContent = "Camera connected. Stand side by side so both players are visible.";
+        if (frameTimer) clearInterval(frameTimer);
+        frameTimer = setInterval(sendCameraFrame, 140);
+    } catch (error) {
         cameraStarted = false;
-        document.getElementById("camera-status").textContent =
-            "Can't reach the game server. Is python server.py running?";
-    };
-
-    preview.src = API + "/video_feed";
-    source.src = API + "/video_feed";
+        status.textContent = "Camera unavailable: allow camera permission, then try again.";
+        console.error("Camera permission failed:", error);
+    }
 }
 
+async function sendCameraFrame() {
+    const source = document.getElementById("camera-source");
+    if (!cameraStarted || sendingFrame || !source.videoWidth || !source.videoHeight) return;
+    sendingFrame = true;
+    try {
+        const scale = Math.min(1, 640 / source.videoWidth);
+        frameCanvas.width = Math.round(source.videoWidth * scale);
+        frameCanvas.height = Math.round(source.videoHeight * scale);
+        frameCanvas.getContext("2d").drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
+        const blob = await new Promise(resolve => frameCanvas.toBlob(resolve, "image/jpeg", 0.72));
+        if (blob) {
+            const response = await fetch(API + "/api/frame", {
+                method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob
+            });
+            if (!response.ok && response.status !== 503) throw new Error("camera upload failed: " + response.status);
+        }
+    } catch (error) {
+        console.error("Camera frame upload failed:", error);
+        document.getElementById("camera-status").textContent = "Lost connection to the scoring server.";
+    } finally {
+        sendingFrame = false;
+    }
+}
+
+function stopBrowserCamera() {
+    if (frameTimer) clearInterval(frameTimer);
+    frameTimer = null;
+    sendingFrame = false;
+    cameraStarted = false;
+    if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+    ["practice-camera", "camera-source"].forEach(id => {
+        const video = document.getElementById(id);
+        if (video) video.srcObject = null;
+    });
+}
 
 // TELL THE PRACTICE ROOM IF BOTH PLAYERS CAN BE SEEN
 function updatePracticeStatus(state) {
@@ -1103,13 +1152,13 @@ function drawCameraHalves() {
     const leftCanvas = document.getElementById("player1-canvas");
     const rightCanvas = document.getElementById("player2-canvas");
 
-    if (!source || !source.naturalWidth) {
+    if (!source || !source.videoWidth) {
         requestAnimationFrame(drawCameraHalves);
         return;
     }
 
-    const width = source.naturalWidth;
-    const height = source.naturalHeight;
+    const width = source.videoWidth;
+    const height = source.videoHeight;
 
     const halfWidth = Math.floor(width / 2);
 
@@ -1127,23 +1176,18 @@ function drawCameraHalves() {
     const leftContext = leftCanvas.getContext("2d");
     const rightContext = rightCanvas.getContext("2d");
 
-    // Draw LEFT half of webcam
-    leftContext.drawImage(
-        source,
-        0, 0,
-        halfWidth, height,
-        0, 0,
-        halfWidth, height
-    );
+    // Mirror both visible halves to match the frames scored by the backend.
+    leftContext.save();
+    leftContext.translate(halfWidth, 0);
+    leftContext.scale(-1, 1);
+    leftContext.drawImage(source, width - halfWidth, 0, halfWidth, height, 0, 0, halfWidth, height);
+    leftContext.restore();
 
-    // Draw RIGHT half of webcam
-    rightContext.drawImage(
-        source,
-        halfWidth, 0,
-        width - halfWidth, height,
-        0, 0,
-        width - halfWidth, height
-    );
+    rightContext.save();
+    rightContext.translate(width - halfWidth, 0);
+    rightContext.scale(-1, 1);
+    rightContext.drawImage(source, 0, 0, width - halfWidth, height, 0, 0, width - halfWidth, height);
+    rightContext.restore();
 
     drawSkeleton(leftContext, 0, 0, width, height);
     drawSkeleton(rightContext, 1, halfWidth, width, height);
