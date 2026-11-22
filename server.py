@@ -49,6 +49,8 @@ class GameServer:
         self.latest_cam = None
         self.initialized = False
         self.async_det = None
+        self.thread = None
+        self.thread_lock = threading.Lock()
         self.dances = {}
         self.fps = {}
         self.dance_seconds = {}
@@ -120,7 +122,23 @@ class GameServer:
         self.start_thread()
 
     def start_thread(self):
-        threading.Thread(target=self.loop, daemon=True).start()
+        with self.thread_lock:
+            if self.thread is not None and self.thread.is_alive():
+                return
+            self.thread = threading.Thread(target=self.loop, daemon=True)
+            self.thread.start()
+
+    def ensure_threads(self):
+        #restart the game loop / detector threads if the host (gunicorn) killed or never started them
+        if not self.initialized:
+            return
+        self.start_thread()
+        det = self.async_det
+        if det is not None and not det.thread.is_alive():
+            print("detector thread was dead - restarting")
+            det.running = True
+            det.thread = threading.Thread(target=det._loop, daemon=True)
+            det.thread.start()
 
     def close(self):
         self.running = False
@@ -131,6 +149,7 @@ class GameServer:
     def submit_frame(self, frame):
         if not self.initialized or self.async_det is None:
             return False
+        self.ensure_threads()
         cam = cv2.flip(frame, 1)
         with self.frame_lock:
             self.latest_cam = cam.copy()
@@ -288,6 +307,7 @@ class GameServer:
             self.clear_round()
 
     def snapshot(self):
+        self.ensure_threads()
         now = time.monotonic()
         with self.lock:
             if self.phase == "challenge":
@@ -372,6 +392,20 @@ def events():
             time.sleep(1 / STATE_HZ)
     return Response(gen(), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.get("/api/health")
+def health():
+    det = server.async_det
+    return jsonify({
+        "version": "v3-ensure-threads",
+        "initialized": server.initialized,
+        "loop_alive": bool(server.thread and server.thread.is_alive()),
+        "detector_alive": bool(det and det.thread.is_alive()),
+        "has_frame": server.latest_cam is not None,
+        "phase": server.phase,
+        "dances_loaded": len(server.dances),
+    })
 
 
 @app.get("/api/state")
