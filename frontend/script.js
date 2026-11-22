@@ -711,6 +711,9 @@ async function startBackendChallenge() {
 
     const message = document.getElementById("challenge-message");
 
+    // Avoid duplicate start requests if the screen transition fires twice.
+    if (waitingForResult) return;
+
     resetChallengeUI();
 
     if (!currentDance) {
@@ -723,8 +726,7 @@ async function startBackendChallenge() {
     lastHits = [0, 0];
 
     try {
-
-        const response = await fetch(API + "/api/challenge/start", {
+        const startRequest = () => fetch(API + "/api/challenge/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -734,8 +736,23 @@ async function startBackendChallenge() {
             })
         });
 
+        let response = await startRequest();
+        if (response.status === 409) {
+            const conflict = await response.json().catch(() => ({}));
+            if (String(conflict.error || "").includes("already running")) {
+                // The server keeps one shared game state across page reloads.
+                // Clear a stale round, then retry this start once.
+                const resetResponse = await fetch(API + "/api/reset", { method: "POST" });
+                if (!resetResponse.ok) throw new Error("Could not reset the previous round.");
+                lastPhase = "idle";
+                response = await startRequest();
+            } else {
+                throw new Error(conflict.error || response.status);
+            }
+        }
+
         if (!response.ok) {
-            const info = await response.json();
+            const info = await response.json().catch(() => ({}));
             throw new Error(info.error || response.status);
         }
 
