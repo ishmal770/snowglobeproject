@@ -105,11 +105,14 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 
 
 def find_model():
-    matches = sorted(SCRIPT_DIR.glob("pose_landmarker_heavy*.task"))
-    if not matches:
-        raise FileNotFoundError(
-            f"No pose_landmarker_heavy*.task file found in {SCRIPT_DIR}")
-    return matches[0]
+    #on Render (free tier, low RAM) use the lite model that download_pose_model.py fetches; locally prefer heavy
+    order = ["pose_landmarker_lite*.task", "pose_landmarker_heavy*.task"] if os.environ.get("RENDER") \
+        else ["pose_landmarker_heavy*.task", "pose_landmarker_lite*.task"]
+    for pattern in order:
+        matches = sorted(SCRIPT_DIR.glob(pattern))
+        if matches:
+            return matches[0]
+    raise FileNotFoundError(f"No pose_landmarker_*.task file found in {SCRIPT_DIR}")
 
 
 def shrink(frame, max_side=DETECT_MAX_SIDE):
