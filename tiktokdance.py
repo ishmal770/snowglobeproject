@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import threading
 import time
+import wave
 from datetime import datetime
 from pathlib import Path
 
@@ -227,6 +228,25 @@ def load_dances():
     if not dances:
         raise FileNotFoundError(f"No dance*.mp4 videos found in {DANCE_DIR}")
     return dances
+
+
+def dance_source_seconds(dance):
+    cap = cv2.VideoCapture(str(dance.video))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    cap.release()
+    video_seconds = frames / fps if frames > 0 else CLIP_SECONDS
+
+    audio_seconds = None
+    if dance.audio and dance.audio.suffix.lower() == ".wav" and dance.audio.is_file():
+        try:
+            with wave.open(str(dance.audio), "rb") as audio_file:
+                audio_seconds = audio_file.getnframes() / audio_file.getframerate()
+        except (OSError, wave.Error, ZeroDivisionError):
+            audio_seconds = None
+
+    return min(CLIP_SECONDS, video_seconds,
+               audio_seconds if audio_seconds and audio_seconds > 0 else video_seconds)
 
 
 def find_ffmpeg():
@@ -452,14 +472,15 @@ def stars_for(acc):
 
 
 class ClipPlayer:
-    def __init__(self, path, speed=1.0, read_frames=True):
+    def __init__(self, path, speed=1.0, read_frames=True, duration_seconds=None):
         self.cap = cv2.VideoCapture(str(path))
         if not self.cap.isOpened():
             raise RuntimeError(f"Could not open video: {path}")
         self.fps = self.cap.get(cv2.CAP_PROP_FPS) or 30
         self.speed = speed
         self.read_frames = read_frames
-        self.max_frames = int(CLIP_SECONDS * self.fps)
+        duration = CLIP_SECONDS if duration_seconds is None else min(CLIP_SECONDS, duration_seconds)
+        self.max_frames = int(duration * self.fps)
         self.index = -1
         self.frame = None
         self.start = None
@@ -813,7 +834,8 @@ def quality_color(score, present):
     return BAD_COLOR
 
 
-def build_challenge_frame(disp, live, inst, present, hits, star_fx, elapsed, now):
+def build_challenge_frame(disp, live, inst, present, hits, star_fx, elapsed, now,
+                          round_seconds=CLIP_SECONDS):
     #everything goes in the margins around the webcam so it never covers the mediapipe dots
     fw = CAM_W + 2 * SIDE
     fh = TOP + H + BOTTOM
@@ -860,10 +882,10 @@ def build_challenge_frame(disp, live, inst, present, hits, star_fx, elapsed, now
     if int(elapsed * 2) % 2 == 0:
         cv2.circle(frame, (cx - 95, 24), 8, (0, 0, 255), -1)
     text_center(frame, "CHALLENGE", 32, 0.8, (255, 255, 255), 2, x_center=cx + 10)
-    text_center(frame, f"{max(CLIP_SECONDS - elapsed, 0):.0f}s", 62, 0.8, (255, 255, 255), 2, x_center=cx)
+    text_center(frame, f"{max(round_seconds - elapsed, 0):.0f}s", 62, 0.8, (255, 255, 255), 2, x_center=cx)
 
     #bottom bar: time progress and how many good moments each player has hit
-    prog = int(CAM_W * min(elapsed / CLIP_SECONDS, 1))
+    prog = int(CAM_W * min(elapsed / max(round_seconds, 0.01), 1))
     cv2.rectangle(frame, (SIDE, TOP + H + 10), (SIDE + CAM_W, TOP + H + 20), (80, 80, 80), -1)
     cv2.rectangle(frame, (SIDE, TOP + H + 10), (SIDE + prog, TOP + H + 20), OK_COLOR, -1)
     for s in (0, 1):
@@ -875,8 +897,9 @@ def build_challenge_frame(disp, live, inst, present, hits, star_fx, elapsed, now
 def run_challenge(camera, async_det, dance, ref):
     countdown(camera, None, "CHALLENGE!")
 
-    #video stays off during the challenge, only the audio plays
-    player = ClipPlayer(dance.video, 1.0, read_frames=False)
+    # Stop at the end of the audio, trimming its silent one-second tail.
+    round_seconds = max(1.0, dance_source_seconds(dance) - 1.0)
+    player = ClipPlayer(dance.video, 1.0, read_frames=False, duration_seconds=round_seconds)
     async_det.reset()
     _, last_id = async_det.latest()
     play_audio(dance.audio)
@@ -945,7 +968,8 @@ def run_challenge(camera, async_det, dance, ref):
 
         star_fx = [f for f in star_fx if now - f["born"] < STAR_FLY_SECONDS]
         live = sums / np.maximum(scored, 1)
-        show(build_challenge_frame(disp, live, inst, present, hits, star_fx, player.elapsed(), now))
+        show(build_challenge_frame(disp, live, inst, present, hits, star_fx,
+                                   player.elapsed(), now, round_seconds))
 
     stop_audio()
     player.release()

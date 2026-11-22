@@ -17,12 +17,19 @@ let roundStarted = false;
 let cameraStarted = false;
 let lastHits = [0, 0];
 let lastStarTime = [0, 0];
+let playerCombos = [0, 0];
+let lastComboHit = [0, 0];
 let lastResult = null;
 
-// practice room playback: mandatory slow once, fast once, then 2 fast replays
-let practiceStage = "idle"; // idle | slow | fast | replay | done
-let practiceReplaysLeft = 2;
+// practice room playback: one required slow play, one normal play, plus optional replays
+let practiceStage = "idle"; // idle | countdown | slow | normal | replay | done
+let practiceReplaysLeft = 3;
+let practicePlayIndex = 0;
+let practiceCountdownTimer = null;
+let countdownNextStage = "slow";
 let practiceSeeking = false;
+let challengePreviewTimer = null;
+let challengePreviewLimit = 0;
 
 const PLAYER_COLORS = ["#00b4ff", "#ffb400"];
 
@@ -42,6 +49,9 @@ function goToPage(pageId) {
 
     if (pageId !== "tutorial") {
         stopPracticePlayback();
+    }
+    if (pageId !== "challenge") {
+        stopChallengePreview();
     }
 
     // Show the big "practice room: time to learn" screen first
@@ -146,11 +156,14 @@ async function pickDance(forceNew = false) {
     const video = document.getElementById("tutorial-video");
     const music = document.getElementById("music-player");
     const url = API + currentDance.video_url;
+    const audioUrl = currentDance.audio_url ? API + currentDance.audio_url : url;
 
     if (video.getAttribute("src") !== url) {
         video.src = url;
         video.load();
-        music.src = url;
+    }
+    if (music.getAttribute("src") !== audioUrl) {
+        music.src = audioUrl;
         music.load();
     }
 
@@ -216,7 +229,7 @@ function enterPractice() {
 
 
 // ============================================================
-// PRACTICE ROOM: MANDATORY SLOW ONCE, FAST ONCE, THEN 2 REPLAYS
+// PRACTICE ROOM: TWO SLOW PLAYS, TWO NORMAL PLAYS, THEN UP TO 3 REPLAYS
 // ============================================================
 
 async function enterPracticeRoom() {
@@ -232,11 +245,46 @@ async function enterPracticeRoom() {
 
 function beginPracticeSequence() {
 
-    practiceReplaysLeft = 2;
-    practiceStage = "slow";
+    practicePlayIndex = 0;
+    practiceReplaysLeft = 3;
+    queuePracticePlayback("slow", 0.75);
+}
 
+
+function queuePracticePlayback(stage, rate) {
+
+    clearInterval(practiceCountdownTimer);
+    countdownNextStage = stage;
+    practiceStage = "countdown";
     updatePracticeUI();
-    playPracticeVideo(0.75);
+
+    const overlay = document.getElementById("practice-countdown");
+    const label = document.getElementById("practice-countdown-label");
+    const number = document.getElementById("practice-countdown-number");
+    let count = 3;
+
+    label.textContent = stage === "replay" ? "REPLAY STARTS IN" : "NEXT VIEWING IN";
+    number.textContent = count;
+    overlay.hidden = false;
+
+    practiceCountdownTimer = setInterval(() => {
+        count--;
+        if (count > 0) {
+            number.textContent = count;
+            number.classList.remove("countdown-pop");
+            void number.offsetWidth;
+            number.classList.add("countdown-pop");
+            return;
+        }
+
+        clearInterval(practiceCountdownTimer);
+        practiceCountdownTimer = null;
+        overlay.hidden = true;
+        practiceStage = stage;
+        if (stage !== "replay") practicePlayIndex++;
+        updatePracticeUI();
+        playPracticeVideo(rate);
+    }, 1000);
 }
 
 
@@ -248,9 +296,24 @@ function playPracticeVideo(rate) {
 
     document.getElementById("tutorial-tap").hidden = true;
 
+    const music = document.getElementById("music-player");
     video.pause();
+    music.pause();
     video.playbackRate = rate;
-    video.muted = false;
+
+    const slowTrack = rate < 1 && currentDance && currentDance.slow_audio_url
+        ? API + currentDance.slow_audio_url : null;
+    const normalTrack = currentDance && currentDance.audio_url
+        ? API + currentDance.audio_url : null;
+    const audioTrack = slowTrack || normalTrack;
+    const mediaUrl = audioTrack || API + currentDance.video_url;
+    if (music.getAttribute("src") !== mediaUrl) {
+        music.src = mediaUrl;
+        music.load();
+    }
+    music.playbackRate = slowTrack ? 1 : rate;
+    music.currentTime = 0;
+    video.muted = Boolean(audioTrack);
 
     // ignore timeupdate while we rewind, otherwise the old end-of-clip
     // position can make the next stage finish instantly
@@ -271,11 +334,21 @@ function playPracticeVideo(rate) {
     }
 
     const attempt = video.play();
+    const audioAttempt = audioTrack ? music.play() : null;
 
-    // browsers can block autoplay with sound until the player taps once
+    // Browsers may block autoplay with sound until the player taps once.
     if (attempt) {
         attempt.catch(error => {
             if (error.name === "AbortError") return;
+            music.pause();
+            video.muted = false;
+            document.getElementById("tutorial-tap").hidden = false;
+        });
+    }
+    if (audioAttempt) {
+        audioAttempt.catch(() => {
+            music.pause();
+            video.muted = false;
             document.getElementById("tutorial-tap").hidden = false;
         });
     }
@@ -287,11 +360,21 @@ function resumePracticeVideo() {
     document.getElementById("tutorial-tap").hidden = true;
 
     const video = document.getElementById("tutorial-video");
+    const music = document.getElementById("music-player");
     const attempt = video.play();
+    const audioAttempt = video.muted ? music.play() : null;
 
     if (attempt) {
         attempt.catch(() => {
+            music.pause();
+            video.muted = false;
             document.getElementById("tutorial-tap").hidden = false;
+        });
+    }
+    if (audioAttempt) {
+        audioAttempt.catch(() => {
+            music.pause();
+            video.muted = false;
         });
     }
 }
@@ -301,10 +384,18 @@ function stopPracticePlayback() {
 
     const video = document.getElementById("tutorial-video");
 
-    if (video) video.pause();
+    if (video) {
+        video.pause();
+        video.muted = false;
+    }
+    document.getElementById("music-player").pause();
 
+    clearInterval(practiceCountdownTimer);
+    practiceCountdownTimer = null;
     practiceStage = "idle";
     practiceSeeking = false;
+    const overlay = document.getElementById("practice-countdown");
+    if (overlay) overlay.hidden = true;
 
     const tap = document.getElementById("tutorial-tap");
     if (tap) tap.hidden = true;
@@ -318,16 +409,14 @@ function finishPracticePlayback() {
     const video = document.getElementById("tutorial-video");
 
     video.pause();
+    document.getElementById("music-player").pause();
 
     if (practiceStage === "slow") {
-        // mandatory fast play right after the slow one
-        practiceStage = "fast";
-        updatePracticeUI();
-        playPracticeVideo(1);
+        queuePracticePlayback("normal", 1);
         return;
     }
 
-    // the mandatory fast play or an optional replay just ended
+    // The required slow and normal-speed viewings are complete.
     practiceStage = "done";
 
     try {
@@ -342,14 +431,11 @@ function finishPracticePlayback() {
 
 function replayFast() {
 
-    if (practiceStage === "slow" || practiceStage === "fast") return;
+    if (practiceStage === "slow" || practiceStage === "normal" || practiceStage === "countdown") return;
     if (practiceReplaysLeft <= 0) return;
 
     practiceReplaysLeft--;
-    practiceStage = "replay";
-
-    updatePracticeUI();
-    playPracticeVideo(1);
+    queuePracticePlayback("replay", 1);
 }
 
 
@@ -363,15 +449,19 @@ function updatePracticeUI() {
     let stepText = "GETTING READY";
     let badgeText = "";
 
-    if (practiceStage === "slow") {
-        stepText = "WATCHING SLOW";
-        badgeText = "SLOW 0.75×";
-    } else if (practiceStage === "fast") {
-        stepText = "WATCHING FAST";
-        badgeText = "FAST 1×";
+    if (practiceStage === "countdown") {
+        stepText = `GET READY • VIEWING ${Math.min(practicePlayIndex + 1, 2)}/2`;
+        badgeText = countdownNextStage === "slow" ? "NEXT: SLOW 0.75×" :
+            countdownNextStage === "normal" ? "NEXT: NORMAL 1×" : "OPTIONAL REPLAY 1×";
+    } else if (practiceStage === "slow") {
+        stepText = "WATCHING SLOW 1/1";
+        badgeText = "SLOW 0.75× • AUDIO SLOWED";
+    } else if (practiceStage === "normal") {
+        stepText = "WATCHING NORMAL 1/1";
+        badgeText = "NORMAL SPEED 1×";
     } else if (practiceStage === "replay") {
-        stepText = "REPLAYING FAST";
-        badgeText = "REPLAY 1×";
+        stepText = "OPTIONAL REPLAY";
+        badgeText = "NORMAL SPEED 1×";
     } else if (practiceStage === "done") {
         stepText = "READY TO PRACTICE";
     }
@@ -386,13 +476,13 @@ function updatePracticeUI() {
     if (replay) {
         replay.disabled = practiceStage !== "done" || practiceReplaysLeft <= 0;
         replay.textContent = practiceReplaysLeft > 0
-            ? "↻ REPLAY FAST (" + practiceReplaysLeft + " left)"
+            ? "↻ REPLAY NORMAL SPEED (" + practiceReplaysLeft + " left)"
             : "NO REPLAYS LEFT";
     }
 
     if (start) {
-        // mandatory slow + fast must finish before the challenge can start
-        start.disabled = !(practiceStage === "done" || practiceStage === "replay");
+        // All four required viewings must finish before the challenge can start.
+        start.disabled = practiceStage !== "done";
     }
 }
 
@@ -407,7 +497,7 @@ document.getElementById("tutorial-video").addEventListener("timeupdate", event =
 
     if (video.currentTime < limit - 0.05) return;
 
-    if (practiceStage === "slow" || practiceStage === "fast" || practiceStage === "replay") {
+    if (practiceStage === "slow" || practiceStage === "normal" || practiceStage === "replay") {
         finishPracticePlayback();
     }
 });
@@ -430,10 +520,10 @@ function startFromPractice() {
         return;
     }
 
-    // the tutorial must be watched slow once and fast once before starting
-    if (practiceStage !== "done" && practiceStage !== "replay") {
+    // The tutorial's four required viewings must finish before starting.
+    if (practiceStage !== "done") {
         message.textContent =
-            "Watch the dance slowly once and at fast speed once first!";
+            "Finish the slow viewing and the normal-speed viewing first!";
         return;
     }
 
@@ -568,6 +658,7 @@ function onState(state) {
         // the dance just started: play the music
         if (state.phase === "challenge" && lastPhase !== "challenge") {
             playMusic();
+            startChallengePreview();
         }
 
         if (state.phase === "challenge") {
@@ -579,6 +670,7 @@ function onState(state) {
             waitingForResult = false;
             roundStarted = false;
             document.getElementById("music-player").pause();
+            stopChallengePreview();
             showResults(state.result);
         }
     }
@@ -587,9 +679,62 @@ function onState(state) {
 }
 
 
+function startChallengePreview() {
+
+    stopChallengePreview();
+    if (!currentDance) return;
+
+    const preview = document.getElementById("challenge-preview");
+    const previewUrl = API + currentDance.video_url;
+    const danceLength = Number(currentDance.duration_seconds || config.clip_seconds || 15);
+    challengePreviewLimit = Math.min(Math.floor(danceLength / 3), Number(currentDance.round_seconds || danceLength));
+
+    if (preview.getAttribute("src") !== previewUrl) {
+        preview.src = previewUrl;
+        preview.load();
+    }
+
+    preview.currentTime = 0;
+    preview.playbackRate = 1;
+    preview.muted = true;
+    document.getElementById("challenge-reference").hidden = false;
+    preview.hidden = false;
+    preview.parentElement.classList.add("previewing");
+    preview.ontimeupdate = () => {
+        if (preview.currentTime >= challengePreviewLimit) stopChallengePreview();
+    };
+    preview.onended = stopChallengePreview;
+    challengePreviewTimer = setTimeout(stopChallengePreview, challengePreviewLimit * 1000 + 250);
+    preview.play().catch(stopChallengePreview);
+}
+
+
+function stopChallengePreview() {
+
+    clearTimeout(challengePreviewTimer);
+    challengePreviewTimer = null;
+    const preview = document.getElementById("challenge-preview");
+    if (!preview) return;
+    preview.pause();
+    preview.hidden = true;
+    const reference = document.getElementById("challenge-reference");
+    if (reference) reference.hidden = true;
+    preview.parentElement.classList.remove("previewing");
+    preview.ontimeupdate = null;
+    preview.onended = null;
+}
+
+
 function playMusic() {
 
     const music = document.getElementById("music-player");
+    const normalTrack = currentDance && currentDance.audio_url
+        ? API + currentDance.audio_url : API + currentDance.video_url;
+
+    if (music.getAttribute("src") !== normalTrack) {
+        music.src = normalTrack;
+        music.load();
+    }
 
     music.currentTime = 0;
     music.playbackRate = 1;
@@ -612,8 +757,10 @@ function updateChallengeUI(state) {
     document.getElementById("time-left").textContent =
         Math.ceil(state.time_left) + "s";
 
-    document.getElementById("stars-display").textContent =
-        "★ ".repeat(stars) + "☆ ".repeat(5 - stars);
+    document.getElementById("stars-display").innerHTML =
+        Array.from({ length: 5 }, (_, index) =>
+            `<span class="score-star ${index < stars ? "earned" : "empty"}" aria-hidden="true">${index < stars ? "★" : "☆"}</span>`
+        ).join("");
 
     const [p1, p2] = state.players;
 
@@ -652,13 +799,36 @@ function updateChallengeUI(state) {
         // big star stays around the player while they keep hitting good frames
         if (star) star.classList.toggle("active", hitting);
 
-        // a big star flies up every time they match a compared frame well
+        // Show each dancer their live streak and celebrate matched moves.
         const now = performance.now();
+        const gainedHits = Math.max(0, Number(player.hits || 0) - Number(lastHits[index] || 0));
+        const feedback = document.getElementById("p" + (index + 1) + "-feedback");
 
-        if (player.hits > lastHits[index] && now - lastStarTime[index] > 200) {
-            spawnStar(panel, index);
-            lastStarTime[index] = now;
+        if (gainedHits > 0) {
+            if (now - lastComboHit[index] > 900) playerCombos[index] = 0;
+            playerCombos[index] += gainedHits;
+            lastComboHit[index] = now;
+            if (now - lastStarTime[index] > 200) {
+                spawnStar(panel, index);
+                lastStarTime[index] = now;
+            }
+        } else if (now - lastComboHit[index] > 1000) {
+            playerCombos[index] = 0;
         }
+
+        if (!player.present) {
+            feedback.textContent = "STEP INTO VIEW";
+        } else if (hitting && playerCombos[index] >= 4) {
+            feedback.textContent = "🔥 ON FIRE ×" + playerCombos[index];
+        } else if (hitting) {
+            feedback.textContent = "NICE MOVE ×" + Math.max(playerCombos[index], 1);
+        } else if (player.now >= 0.5) {
+            feedback.textContent = "ALMOST — KEEP GOING";
+        } else {
+            feedback.textContent = "MOVE WITH THE BEAT";
+        }
+        feedback.classList.toggle("combo-hot", hitting && playerCombos[index] >= 4);
+        feedback.classList.toggle("combo-hit", hitting);
 
         lastHits[index] = player.hits;
     });
@@ -693,9 +863,20 @@ function resetChallengeUI() {
         document.getElementById(id).classList.remove("q-good", "q-ok", "q-bad", "q-idle");
     });
 
+    lastHits = [0, 0];
+    lastStarTime = [0, 0];
+    playerCombos = [0, 0];
+    lastComboHit = [0, 0];
     ["p1-star", "p2-star"].forEach(id => {
         const star = document.getElementById(id);
         if (star) star.classList.remove("active");
+    });
+    ["p1-feedback", "p2-feedback"].forEach(id => {
+        const feedback = document.getElementById(id);
+        if (feedback) {
+            feedback.textContent = "STEP INTO VIEW";
+            feedback.classList.remove("combo-hot", "combo-hit");
+        }
     });
 }
 
@@ -719,20 +900,17 @@ function showResults(result) {
     if (result.passed) {
 
         document.getElementById("ice-overlay").style.opacity = 0;
+        document.getElementById("olaf-image").src = "assests/characters/free olaf.png";
 
-        document.getElementById("victory-stars").textContent =
-            "⭐".repeat(result.stars);
-
-        document.getElementById("final-score").textContent =
-            "Your dance accuracy: " + percent + "%";
+        document.getElementById("final-score").textContent = percent + "%";
 
         document.getElementById("final-detail").textContent = detail;
         document.getElementById("final-rank").textContent = rankText;
 
         document.getElementById("submit-message").textContent =
             result.new_personal_best
-                ? "NEW PERSONAL BEST! 🎉 Your score has been saved!"
-                : "Your score has been saved! 🎉";
+                ? "NEW PERSONAL BEST — your score has been saved."
+                : "Your score has been saved.";
 
         const victoryPhoto = document.getElementById("victory-photo");
         victoryPhoto.src = photo;
@@ -744,8 +922,7 @@ function showResults(result) {
 
     } else {
 
-        document.getElementById("failure-score").textContent =
-            "Your dance accuracy: " + percent + "%";
+        document.getElementById("failure-score").textContent = percent + "%";
 
         document.getElementById("failure-detail").textContent = detail;
         document.getElementById("failure-rank").textContent = rankText;
@@ -798,20 +975,29 @@ function renderLeaderboard(listId, entries) {
         return;
     }
 
-    entries.forEach(entry => {
-
+    entries.forEach((entry, index) => {
         const item = document.createElement("li");
+        item.className = "leaderboard-row";
+        if (entry.pair.toLowerCase() === teamName.toLowerCase()) item.classList.add("me");
 
-        item.textContent =
-            entry.pair + " — " + Math.round(entry.accuracy * 100) + "% " +
-            "⭐".repeat(entry.stars || 0);
+        const rank = document.createElement("span");
+        rank.className = "leaderboard-rank";
+        rank.textContent = String(index + 1).padStart(2, "0");
 
-        if (entry.pair.toLowerCase() === teamName.toLowerCase()) {
-            item.className = "me";
-        }
+        const name = document.createElement("span");
+        name.className = "leaderboard-name";
+        name.textContent = entry.pair;
 
+        const score = document.createElement("span");
+        score.className = "leaderboard-score";
+        score.textContent = Math.round(entry.accuracy * 100) + "%";
+
+        const stars = document.createElement("span");
+        stars.className = "leaderboard-stars";
+        stars.textContent = (entry.stars || 0) + " / 5 stars";
+
+        item.append(rank, name, score, stars);
         list.appendChild(item);
-
     });
 }
 
@@ -831,9 +1017,6 @@ function nextDance() {
 function freeOlaf() {
 
     if (lastResult) {
-
-        document.getElementById("finale-stars").textContent =
-            "⭐".repeat(lastResult.stars);
 
         document.getElementById("finale-score").textContent =
             "Final dance accuracy: " + Math.round(lastResult.pair_accuracy * 100) + "%";
@@ -888,6 +1071,20 @@ function restartGame() {
 function retryGame() {
 
     resetEverything();
+
+    goToPage("practice-intro");
+}
+
+
+function nextPlayer() {
+
+    resetEverything();
+    currentDance = null;
+    teamName = "";
+    lastResult = null;
+
+    const nameInput = document.getElementById("team-name");
+    if (nameInput) nameInput.value = "";
 
     goToPage("practice-intro");
 }

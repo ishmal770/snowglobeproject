@@ -5,6 +5,7 @@ import os
 import random
 import threading
 import time
+import wave
 from pathlib import Path
 
 import cv2
@@ -47,6 +48,8 @@ class GameServer:
         self.async_det = None
         self.dances = {}
         self.fps = {}
+        self.dance_seconds = {}
+        self.round_seconds = {}
         self.ref = {}
 
         self.phase = "idle"
@@ -74,6 +77,12 @@ class GameServer:
         model_path = td.find_model()
         self.dances = {d.name: d for d in td.load_dances()}
 
+        # Create the normal and slowed audio sidecars for every dance.
+        # Existing WAV/MP3 files are reused; missing ones are extracted from
+        # the video's embedded soundtrack when imageio-ffmpeg is installed.
+        for dance in self.dances.values():
+            td.prepare_audio(dance)
+
         self.cap = td.open_camera()
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -88,8 +97,24 @@ class GameServer:
         factory = lambda n: td.Detector(model_path, num_poses=n)
         for name, dance in self.dances.items():
             video = cv2.VideoCapture(str(dance.video))
-            self.fps[name] = video.get(cv2.CAP_PROP_FPS) or 30
+            fps = video.get(cv2.CAP_PROP_FPS) or 30
+            frame_count = video.get(cv2.CAP_PROP_FRAME_COUNT)
+            self.fps[name] = fps
+            video_seconds = frame_count / fps if frame_count > 0 else td.CLIP_SECONDS
+            audio_seconds = None
+            if dance.audio and dance.audio.suffix.lower() == ".wav" and dance.audio.is_file():
+                try:
+                    with wave.open(str(dance.audio), "rb") as audio_file:
+                        audio_seconds = audio_file.getnframes() / audio_file.getframerate()
+                except (OSError, wave.Error, ZeroDivisionError):
+                    audio_seconds = None
             video.release()
+
+            source_seconds = min(td.CLIP_SECONDS, video_seconds,
+                                 audio_seconds if audio_seconds and audio_seconds > 0 else video_seconds)
+            self.dance_seconds[name] = source_seconds
+            self.round_seconds[name] = max(1.0, source_seconds - 1.0)
+
             self.ref[name] = td.load_reference(
                 dance, factory,
                 lambda f, name=name: print(f"\rAnalyzing {name}: {f * 100:3.0f}%", end="", flush=True))
@@ -158,7 +183,7 @@ class GameServer:
 
             if self.phase == "challenge":
                 elapsed = now - self.t0
-                if elapsed >= td.CLIP_SECONDS:
+                if elapsed >= self.round_seconds.get(self.dance, max(td.CLIP_SECONDS - 1.0, 1.0)):
                     self.finish()
                 elif new_result:
                     self.score(cam, elapsed)
@@ -251,9 +276,10 @@ class GameServer:
             if self.phase == "challenge":
                 elapsed = max(now - self.t0, 0.0)
             elif self.phase == "results":
-                elapsed = float(td.CLIP_SECONDS)
+                elapsed = self.round_seconds.get(self.dance, max(td.CLIP_SECONDS - 1.0, 1.0))
             else:
                 elapsed = 0.0
+            round_length = self.round_seconds.get(self.dance, max(td.CLIP_SECONDS - 1.0, 1.0))
             live = self.sums / np.maximum(self.scored, 1)
             players = []
             for s in (0, 1):
@@ -275,8 +301,8 @@ class GameServer:
                 "countdown": (max(math.ceil(self.countdown_end - now), 0)
                               if self.phase == "countdown" else None),
                 "elapsed": round(elapsed, 2),
-                "time_left": round(max(td.CLIP_SECONDS - elapsed, 0.0), 2),
-                "clip_seconds": td.CLIP_SECONDS,
+                "time_left": round(max(round_length - elapsed, 0.0), 2),
+                "clip_seconds": round_length,
                 "good_score": td.GOOD_SCORE,
                 "players": players,
                 "pair_live": round(pair_live, 3),
@@ -336,9 +362,16 @@ def dances():
         "clip_seconds": td.CLIP_SECONDS,
         "slow_speed": td.SLOW_SPEED,
         "countdown_seconds": COUNTDOWN_SECONDS,
-        "dances": [{"id": name, "video_url": "/dances/" + d.video.name, "fps": server.fps.get(name),
-                    "duo": d.duo}
-                   for name, d in server.dances.items()],
+        "dances": [{
+            "id": name,
+            "video_url": "/dances/" + d.video.name,
+            "duration_seconds": server.dance_seconds.get(name, td.CLIP_SECONDS),
+            "round_seconds": server.round_seconds.get(name, max(td.CLIP_SECONDS - 1.0, 1.0)),
+            "audio_url": "/dances/" + d.audio.name if d.audio and d.audio.is_file() else None,
+            "slow_audio_url": "/dances/" + d.audio_slow.name if d.audio_slow and d.audio_slow.is_file() else None,
+            "fps": server.fps.get(name),
+            "duo": d.duo,
+        } for name, d in server.dances.items()],
     })
 
 

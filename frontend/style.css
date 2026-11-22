@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Trebuchet MS', sans-serif;
-    background: #dcecff;
+    background: #dcecff url("assests/backgrounds/main_background.png") center / cover fixed;
     color: #263c61;
 }
 
@@ -207,8 +207,7 @@ button:disabled:hover {
 
 /* TWO VIDEO PANELS */
 
-/* =========================
-   PRACTICE ROOM INTRO
+/* ==================   PRACTICE ROOM INTRO
 ========================= */
 
 #practice-intro {
@@ -250,8 +249,7 @@ button:disabled:hover {
 }
 
 
-/* =========================
-   PRACTICE ROOM (FULL SCREEN)
+/* ==================   PRACTICE ROOM (FULL SCREEN)
 ========================= */
 
 #tutorial {
@@ -644,8 +642,7 @@ input {
 }
 
 
-/* =========================
-   DANCE CHALLENGE PAGE
+/* ==================   DANCE CHALLENGE PAGE
 ========================= */
 
 .challenge-page {
@@ -855,8 +852,7 @@ input {
 
 
 
-/* =========================
-   BACKEND CONNECTION ADDITIONS
+/* ==================   BACKEND CONNECTION ADDITIONS
 ========================= */
 
 /* the live camera stream used for drawing the player halves (must stay rendered so it keeps updating) */
@@ -1091,4 +1087,415 @@ input {
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
+}
+
+
+/* Larger, lively challenge room */
+#challenge {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #d9ecff, #eee2ff 52%, #d8f8ff);
+}
+
+.challenge-page {
+    position: relative;
+    z-index: 1;
+    width: min(98%, 1760px);
+    max-width: 1760px;
+}
+
+.challenge-page::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -12vh -12vw;
+    pointer-events: none;
+    opacity: 0.62;
+    background:
+        radial-gradient(ellipse at 8% 10%, #ff4bd455 0 12%, transparent 32%),
+        radial-gradient(ellipse at 88% 18%, #29e9ff55 0 13%, transparent 33%),
+        radial-gradient(ellipse at 25% 90%, #ffd44755 0 12%, transparent 30%),
+        radial-gradient(ellipse at 78% 85%, #8065ff55 0 13%, transparent 32%);
+    filter: blur(16px);
+    animation: disco-lights 7s ease-in-out infinite alternate;
+}
+
+.challenge-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 18px;
+    border-radius: 999px;
+    color: #fff;
+    background: linear-gradient(90deg, #6748c8, #2589d8, #d84fac);
+    font-size: clamp(13px, 1.6vw, 18px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    box-shadow: 0 5px 22px #6448c855;
+    animation: challenge-glow 2.2s ease-in-out infinite alternate;
+}
+
+.challenge-live-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff36a;
+    box-shadow: 0 0 12px #fff36a;
+    animation: live-blink 0.9s ease-in-out infinite alternate;
+}
+
+.dance-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(140px, 0.38fr) minmax(0, 1fr);
+    gap: clamp(10px, 1.5vw, 24px);
+    max-width: 1660px;
+    align-items: stretch;
+}
+
+.dance-panel {
+    padding: clamp(10px, 1.3vw, 20px);
+    background: #ffffffed;
+    box-shadow: 0 10px 30px #344c8340, 0 0 20px #c056ff1a;
+}
+
+.dance-camera {
+    aspect-ratio: 4 / 3;
+    min-height: 290px;
+}
+
+.olaf-container {
+    aspect-ratio: 3 / 4;
+}
+
+#stars-display {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    font-size: clamp(30px, 3.4vw, 48px);
+}
+
+.score-star {
+    display: inline-block;
+    transform-origin: center;
+}
+
+.score-star.earned {
+    color: #ffbd27;
+    text-shadow: 0 2px 0 #d88700, 0 0 14px #ffca36a8;
+    animation: score-star-pop 520ms cubic-bezier(.16, 1.4, .5, 1) both;
+}
+
+.score-star.empty { color: #afbbd0; }
+
+.star-pop {
+    z-index: 3;
+    font-size: clamp(32px, 3.5vw, 48px);
+    filter: drop-shadow(0 0 8px #ffda55);
+}
+
+@keyframes disco-lights {
+    from { transform: translate3d(-2%, -1%, 0) rotate(-4deg) scale(1); }
+    to { transform: translate3d(2%, 1%, 0) rotate(4deg) scale(1.08); }
+}
+
+@keyframes challenge-glow {
+    from { filter: saturate(1); box-shadow: 0 5px 18px #6448c844; }
+    to { filter: saturate(1.4); box-shadow: 0 5px 28px #b53fbf88; }
+}
+
+@keyframes live-blink {
+    from { opacity: 0.55; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes score-star-pop {
+    0% { transform: scale(0.55) rotate(-14deg); opacity: 0.6; }
+    70% { transform: scale(1.28) rotate(8deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+.practice-countdown {
+    position: absolute;
+    z-index: 5;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: white;
+    background: #152442bd;
+    backdrop-filter: blur(4px);
+    pointer-events: none;
+}
+
+.practice-countdown[hidden] { display: none; }
+.practice-countdown span { font-weight: 900; letter-spacing: 2px; }
+.practice-countdown strong { font-size: clamp(70px, 12vw, 150px); line-height: 1; text-shadow: 0 0 25px #81d7ff; }
+.countdown-pop { animation: pop 0.8s ease-in-out; }
+
+@media (max-width: 700px) {
+    .dance-layout { grid-template-columns: minmax(0, 1fr) minmax(72px, 0.35fr) minmax(0, 1fr); }
+    .dance-camera { min-height: 180px; aspect-ratio: 3 / 4; }
+    .challenge-page { padding-top: 14px; }
+    .challenge-subtitle { margin-bottom: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .challenge-page::before, .challenge-label, .challenge-live-dot,
+    .score-star.earned, .star-pop { animation-duration: 0.01ms !important; }
+}
+
+
+/* Live player coaching makes the challenge react to each dancer. */
+.player-feedback {
+    position: absolute;
+    z-index: 4;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100% - 18px);
+    padding: 8px 12px;
+    border: 1px solid #ffffffa8;
+    border-radius: 999px;
+    color: white;
+    background: #18294fd9;
+    box-shadow: 0 4px 16px #101e4b70;
+    font-size: clamp(10px, 1.1vw, 15px);
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.player-feedback.combo-hit {
+    background: linear-gradient(90deg, #087a6c, #149657);
+    box-shadow: 0 0 20px #43f5ad99;
+    animation: feedback-bounce 300ms ease-out;
+}
+
+.player-feedback.combo-hot {
+    background: linear-gradient(90deg, #dc4a13, #d52276);
+    box-shadow: 0 0 24px #ff9b3c;
+    animation: combo-flare 700ms ease-in-out infinite alternate;
+}
+
+@keyframes feedback-bounce {
+    0% { transform: translateX(-50%) scale(0.86); }
+    70% { transform: translateX(-50%) scale(1.12); }
+    100% { transform: translateX(-50%) scale(1); }
+}
+
+@keyframes combo-flare {
+    from { filter: saturate(1); }
+    to { filter: saturate(1.7) brightness(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .player-feedback.combo-hit, .player-feedback.combo-hot { animation-duration: 0.01ms !important; }
+}
+
+
+/* The dance reference appears in Olaf's panel for the opening third of a round. */
+.olaf-container #challenge-preview {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #1b2e51;
+}
+
+.olaf-container #challenge-preview[hidden] { display: none !important; }
+
+.olaf-container.previewing #ice-overlay { opacity: 0 !important; }
+
+
+/* Flat, full-screen challenge room */
+#challenge {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: hidden;
+    background: #e8edf2;
+}
+
+#challenge .challenge-page {
+    width: 100%;
+    max-width: none;
+    height: 100vh;
+    min-height: 0;
+    margin: 0;
+    padding: 8px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#challenge .challenge-page::before { display: none; }
+#challenge .challenge-label { background: #3f5e7d; box-shadow: none; animation: none; }
+#challenge .challenge-live-dot { animation: none; }
+#challenge .challenge-header { flex: 0 0 auto; }
+#challenge .challenge-page h1 { margin: 0; font-size: clamp(20px, 2.8vh, 30px); text-shadow: none; }
+#challenge .challenge-subtitle { display: none; }
+
+#challenge .progress-container {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 7px 12px;
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(120px, 0.8fr) auto;
+    align-items: center;
+    gap: 4px 14px;
+    border: 1px solid #cbd4de;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+#challenge .progress-label { grid-column: 1 / -1; margin: 0; font-size: 13px; }
+#challenge .progress-bar { grid-column: 1; height: 10px; }
+#challenge #progress-fill { background: #6386a8; transition: width 0.2s linear; }
+#challenge #stars-display { grid-column: 2; grid-row: 2; margin: 0; font-size: 25px; }
+#challenge #challenge-message { grid-column: 3; grid-row: 2; margin: 0; font-size: 12px; }
+
+#challenge .dance-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: stretch;
+}
+
+#challenge .olaf-panel { display: none; }
+#challenge .dance-panel {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    border: 1px solid #b9c5d1;
+    border-radius: 10px;
+    outline-width: 3px;
+    background: #fff;
+    box-shadow: none;
+}
+
+#challenge .dance-panel h2 { margin: 0 0 6px; font-size: clamp(15px, 2vh, 22px); }
+#challenge .dance-camera { flex: 1 1 auto; min-height: 0; height: 100%; aspect-ratio: auto; border-radius: 7px; }
+#challenge .player-feedback { background: #34495e; box-shadow: none; }
+#challenge .player-feedback.combo-hit { background: #187a58; box-shadow: none; }
+#challenge .player-feedback.combo-hot { background: #b64b1e; box-shadow: none; }
+#challenge .dance-panel.q-good { outline-color: #2c8c60; }
+#challenge .dance-panel.q-ok { outline-color: #b48a2f; }
+#challenge .dance-panel.q-bad { outline-color: #b94b4b; }
+
+.challenge-reference {
+    position: absolute;
+    z-index: 20;
+    top: 50%;
+    left: 50%;
+    width: min(42vw, 560px);
+    padding: 10px;
+    transform: translate(-50%, -50%);
+    border: 2px solid #fff;
+    border-radius: 10px;
+    background: #263746;
+    box-shadow: 0 8px 24px #17212c66;
+}
+
+.challenge-reference[hidden] { display: none !important; }
+.challenge-reference p { margin: 0 0 7px; color: white; font-weight: 800; letter-spacing: 1px; }
+.challenge-reference video { display: block; width: 100%; max-height: 43vh; object-fit: contain; background: #111; }
+
+/* Results screens: leaderboard and score at left, captured photo at right */
+#victory, #failure, #finale {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+    background: #edf1f4;
+    text-align: left;
+}
+
+.results-shell {
+    width: min(100%, 1600px);
+    height: 100vh;
+    min-height: 0;
+    margin: auto;
+    padding: clamp(18px, 3vh, 36px) clamp(18px, 4vw, 64px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    color: #24384a;
+}
+
+.results-header { flex: 0 0 auto; text-align: left; }
+.results-kicker { margin: 0 0 4px; color: #5e7183; font-size: 13px; font-weight: 800; letter-spacing: 2px; }
+.results-header h1 { margin: 0; color: #263b4e; font-size: clamp(26px, 4vh, 44px); text-shadow: none; }
+
+.result-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: clamp(12px, 2vw, 28px);
+}
+
+.result-left { min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.result-score-card, .results-leaderboard, .result-photo-panel {
+    border: 1px solid #cbd4dc;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.result-score-card { flex: 0 0 auto; padding: clamp(14px, 2vh, 22px); }
+.result-label { margin: 0 0 6px; color: #66798b; font-size: 12px; font-weight: 800; letter-spacing: 1.5px; }
+.result-score { margin: 0; color: #1f3447; font-size: clamp(42px, 7vh, 76px); line-height: 1; font-weight: 800; }
+.result-detail { margin: 12px 0 0; color: #2f4558; font-size: clamp(17px, 2.3vh, 24px); font-weight: 700; }
+.rank-message, .result-save-message { margin: 8px 0 0; color: #53697d; font-size: clamp(15px, 1.9vh, 20px); }
+
+.results-leaderboard { flex: 1 1 auto; min-height: 0; max-width: none; margin: 0; padding: 14px; overflow: auto; }
+.results-leaderboard h2 { margin: 0 0 8px; color: #263b4e; font-size: 18px; }
+.results-leaderboard ol { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.results-leaderboard li { margin: 0; padding: 9px 10px; border: 1px solid #e0e5ea; border-radius: 8px; background: #f7f9fb; line-height: 1.2; }
+.results-leaderboard li.me { border-color: #6a8cab; background: #e8eef4; color: #20384d; }
+.leaderboard-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; }
+.leaderboard-rank { color: #718395; font-size: 13px; font-weight: 800; }
+.leaderboard-name { overflow: hidden; color: #273d50; font-size: 17px; font-weight: 700; text-overflow: ellipsis; }
+.leaderboard-score { color: #263b4e; font-size: 19px; font-weight: 800; }
+.leaderboard-stars { color: #65798c; font-size: 13px; white-space: nowrap; }
+
+.result-photo-panel { min-height: 0; padding: 12px; display: flex; flex-direction: column; }
+.result-photo-panel .result-label { flex: 0 0 auto; }
+.result-photo { flex: 1 1 auto; width: 100%; height: 100%; max-width: none; max-height: none; min-height: 0; margin: 0; border-radius: 7px; background: #e9edf1; object-fit: contain; box-shadow: none; }
+.result-photo[hidden] { display: none; }
+
+.result-actions { flex: 0 0 auto; display: flex; justify-content: flex-start; gap: 10px; margin: 0; }
+.result-actions button { min-width: 150px; margin: 0; border: 1px solid #37556e; border-radius: 8px; background: #37556e; color: #fff; box-shadow: none; }
+.result-actions button:hover { background: #2c455b; }
+.result-actions .secondary-action { border-color: #9cabb8; background: #fff; color: #30465a; }
+.result-actions .secondary-action:hover { background: #e8edf1; }
+
+@media (max-width: 760px) {
+    #challenge .challenge-page { padding: 6px; gap: 6px; }
+    #challenge .challenge-label { display: none; }
+    #challenge .progress-container { padding: 6px; grid-template-columns: 1fr auto; gap: 4px 8px; }
+    #challenge .progress-label { font-size: 11px; }
+    #challenge .progress-bar { grid-column: 1; }
+    #challenge #stars-display { grid-column: 2; grid-row: 2; font-size: 20px; }
+    #challenge #challenge-message { grid-column: 1 / -1; grid-row: 3; }
+    #challenge .dance-layout { gap: 5px; }
+    #challenge .dance-panel { padding: 4px; }
+    #challenge .dance-panel h2 { font-size: 12px; }
+    .challenge-reference { width: min(78vw, 440px); }
+    .results-shell { height: auto; min-height: 100vh; padding: 18px 14px; }
+    .result-grid { grid-template-columns: 1fr; }
+    .results-leaderboard { flex: initial; }
+    .result-photo-panel { min-height: 35vh; }
+    .result-actions { flex-wrap: wrap; }
+    .leaderboard-row { grid-template-columns: 34px minmax(0, 1fr) auto; }
+    .leaderboard-stars { grid-column: 2 / -1; }
 }
