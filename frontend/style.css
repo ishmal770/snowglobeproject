@@ -1,0 +1,596 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Trebuchet MS', sans-serif;
+    background: #dcecff;
+    color: #263c61;
+}
+
+.screen {
+    display: none;
+    min-height: 100vh;
+    width: 100%;
+    padding: 40px 20px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.screen.active {
+    display: flex;
+}
+
+.page-content {
+    max-width: 900px;
+    width: 100%;
+    margin: auto;
+}
+
+.subtitle {
+    letter-spacing: 4px;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+h1 {
+    font-size: clamp(38px, 7vw, 75px);
+    color: #46699e;
+    margin-bottom: 20px;
+    text-shadow: 3px 3px white;
+}
+
+h2 {
+    color: #668fc9;
+    margin-bottom: 15px;
+}
+
+p {
+    font-size: 18px;
+    line-height: 1.6;
+    margin: 12px 0;
+}
+
+/* WELCOME */
+
+#welcome {
+    background: linear-gradient(135deg, #c8e4ff, #f0e8ff, #d6f4ff);
+}
+
+.characters {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    margin: 30px 0;
+}
+
+.character {
+    font-size: 85px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 30px;
+    padding: 20px;
+}
+
+/* BUTTONS */
+
+button {
+    background: #668fc9;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 16px 30px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 12px;
+    transition: 0.2s;
+}
+
+button:hover {
+    background: #416cae;
+    transform: scale(1.05);
+}
+
+.back-button {
+    background: #aabbd5;
+}
+
+/* INSTRUCTIONS */
+
+.instruction-box {
+    background: white;
+    padding: 30px;
+    border-radius: 25px;
+    margin: 30px auto;
+    max-width: 550px;
+    box-shadow: 0 5px 20px #9bb5d455;
+}
+
+/* VIDEO PLACEHOLDER */
+
+.video-placeholder {
+    background: #263c61;
+    color: white;
+    max-width: 600px;
+    aspect-ratio: 16 / 9;
+    margin: 30px auto;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.video-placeholder span {
+    font-size: 55px;
+}
+
+/* COUNTDOWN */
+
+#countdown {
+    background: linear-gradient(135deg, #d6eaff, #eee5ff);
+}
+
+#countdown-number {
+    font-size: clamp(100px, 20vw, 190px);
+    color: #668fc9;
+    font-weight: bold;
+    text-shadow: 5px 5px white;
+    animation: pop 0.8s ease-in-out;
+}
+
+@keyframes pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* CHALLENGE */
+
+.challenge-content {
+    max-width: 1050px;
+}
+
+.score-section {
+    max-width: 700px;
+    margin: 25px auto;
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 5px 20px #9bb5d455;
+}
+
+.score-labels {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    font-size: 15px;
+    margin-bottom: 12px;
+}
+
+.progress-track {
+    width: 100%;
+    height: 22px;
+    background: #e5eaf3;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+#progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #79c9b1, #668fc9);
+    border-radius: 20px;
+    transition: width 0.8s ease;
+}
+
+#stars-display {
+    font-size: 35px;
+    letter-spacing: 10px;
+    margin-top: 12px;
+    color: #e8b83e;
+}
+
+/* TWO VIDEO PANELS */
+
+/* PRACTICE ROOM */
+
+.practice-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+    max-width: 950px;
+    margin: 30px auto;
+}
+
+.practice-panel {
+    background: white;
+    padding: 20px;
+    border-radius: 22px;
+    box-shadow: 0 5px 20px #9bb5d455;
+    min-width: 0;
+}
+
+.practice-panel h2 {
+    font-size: 20px;
+}
+
+.tutorial-video {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #263c61;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.tutorial-video video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+#tutorial-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    pointer-events: none;
+    font-size: 14px;
+}
+
+.tutorial-video:has(video[src]) #tutorial-placeholder {
+    display: none;
+}
+
+.practice-camera-box {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #263c61;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.practice-camera-box video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.panel-caption {
+    font-size: 14px;
+    color: #70809a;
+}
+
+
+/* DANCE CHALLENGE */
+
+.video-container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 900px;
+    margin: 25px auto;
+    align-items: start;
+}
+
+.video-panel {
+    min-width: 0;
+    background: white;
+    padding: 16px;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px #9bb5d455;
+}
+
+.video-panel h2 {
+    font-size: clamp(17px, 2vw, 23px);
+}
+
+.camera-box {
+    width: 100%;
+    aspect-ratio: 8 / 9;
+    max-height: 48vh;
+    margin: 0 auto;
+    background: #263c61;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.camera-box canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+
+/* SMALLER SCREENS */
+
+@media (max-width: 650px) {
+
+    .practice-container {
+        grid-template-columns: 1fr;
+    }
+
+    .video-container {
+        gap: 10px;
+    }
+
+    .video-panel {
+        padding: 8px;
+    }
+
+    .camera-box {
+        max-height: 38vh;
+    }
+}
+
+
+.camera-box span {
+    font-size: 50px;
+}
+
+.camera-box p {
+    font-size: 15px;
+}
+
+/* DEMO CONTROLS */
+
+.demo-controls {
+    background: #ffffffa8;
+    padding: 15px;
+    border-radius: 15px;
+    margin: 25px auto;
+}
+
+.demo-controls p {
+    font-size: 13px;
+    color: #62748f;
+}
+
+/* VICTORY AND FAILURE */
+
+#victory {
+    background: linear-gradient(135deg, #fff4d6, #e2f6ff);
+}
+
+#failure {
+    background: linear-gradient(135deg, #dceaff, #e9e3f7);
+}
+
+.celebration {
+    font-size: 60px;
+    margin-bottom: 15px;
+}
+
+#victory-stars {
+    font-size: 55px;
+    margin: 20px;
+}
+
+input {
+    width: 80%;
+    max-width: 350px;
+    padding: 14px;
+    border: 2px solid #b9cee9;
+    border-radius: 12px;
+    font-size: 16px;
+    margin: 15px;
+}
+
+.leaderboard {
+    background: white;
+    max-width: 500px;
+    margin: 25px auto;
+    padding: 25px;
+    border-radius: 20px;
+}
+
+.leaderboard ol {
+    text-align: left;
+    padding-left: 30px;
+    line-height: 2;
+}
+
+
+/* =========================
+   DANCE CHALLENGE PAGE
+========================= */
+
+.challenge-page {
+    width: 95%;
+    max-width: 1450px;
+    margin: 0 auto;
+    padding: 25px 0 40px;
+    text-align: center;
+}
+
+.challenge-page h1 {
+    font-size: clamp(32px, 4vw, 55px);
+    color: #46699E;
+    margin-bottom: 8px;
+}
+
+.challenge-subtitle {
+    color: #263C61;
+    margin-bottom: 25px;
+}
+
+
+/* PROGRESS BAR */
+
+.progress-container {
+    background: white;
+    width: 85%;
+    max-width: 950px;
+    margin: 0 auto 35px;
+    padding: 20px 25px;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px #9bb5d455;
+}
+
+.progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    color: #263C61;
+    margin-bottom: 10px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 18px;
+    background: #E5EAF3;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+#progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #78A8E8;
+    border-radius: 20px;
+    transition: width 0.4s ease;
+}
+
+#stars-display {
+    font-size: 35px;
+    color: #F2B323;
+    margin-top: 12px;
+}
+
+
+/* THREE-PANEL LAYOUT */
+
+.dance-layout {
+    display: grid;
+
+    /* Two large player panels + smaller Olaf panel */
+    grid-template-columns: 1fr 0.55fr 1fr;
+
+    gap: 22px;
+
+    width: 100%;
+    max-width: 1250px;
+
+    margin: 0 auto;
+
+    align-items: center;
+}
+
+
+/* PLAYER PANELS */
+
+.dance-panel {
+    background: white;
+    padding: 16px;
+    border-radius: 20px;
+
+    box-shadow: 0 5px 20px #9bb5d455;
+
+    min-width: 0;
+}
+
+.dance-panel h2,
+.olaf-panel h2 {
+    color: #6993CC;
+    font-size: 22px;
+    margin: 0 0 14px;
+}
+
+.dance-camera {
+    width: 100%;
+
+    aspect-ratio: 3 / 4;
+
+    background: #263C61;
+
+    border-radius: 13px;
+    overflow: hidden;
+}
+
+.dance-camera canvas {
+    width: 100%;
+    height: 100%;
+
+    display: block;
+
+    object-fit: cover;
+}
+
+
+/* OLAF CENTER PANEL */
+
+.olaf-panel {
+    min-width: 0;
+}
+
+.olaf-container {
+    width: 100%;
+
+    aspect-ratio: 3 / 4;
+
+    background: white;
+
+    border: 4px solid #263C61;
+    border-radius: 15px;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    overflow: hidden;
+}
+
+.olaf-container img {
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+}
+
+
+/* RESPONSIVE LAYOUT */
+@media (max-width: 700px) {
+
+    .challenge-page {
+        width: 96%;
+    }
+
+    .dance-layout {
+        grid-template-columns: 1fr 0.55fr 1fr;
+        gap: 8px;
+    }
+
+    .dance-panel {
+        padding: 7px;
+    }
+
+    .dance-panel h2,
+    .olaf-panel h2 {
+        font-size: 14px;
+    }
+
+    .progress-container {
+    background: white;
+    width: 65%;
+    max-width: 700px;
+    margin: 0 auto 25px;
+    padding: 12px 20px;
+    border-radius: 16px;
+    box-shadow: 0 5px 20px #9bb5d455;
+}
+
+#stars-display {
+    font-size: 28px;
+    margin-top: 6px;
+}
+
+}
+
