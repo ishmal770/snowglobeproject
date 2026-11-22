@@ -32,6 +32,12 @@ let countdownNextStage = "slow";
 let practiceSeeking = false;
 let challengePreviewTimer = null;
 let challengePreviewLimit = 0;
+let challengePreviewOpaqueUntil = 0;
+let challengePlaybackId = 0;
+let displayedStars = -1;
+let practicePlaybackId = 0;
+let practiceAudioScale = 1;
+let practiceHasSidecar = false;
 
 const PLAYER_COLORS = ["#00b4ff", "#ffb400"];
 
@@ -171,7 +177,8 @@ async function pickDance(forceNew = false) {
         music.load();
     }
 
-    document.getElementById("duo-hint").hidden = !currentDance.duo;
+    const duoHint = document.getElementById("duo-hint");
+    if (duoHint) duoHint.hidden = !currentDance.duo;
 
     return true;
 }
@@ -233,7 +240,7 @@ function enterPractice() {
 
 
 // ============================================================
-// PRACTICE ROOM: TWO SLOW PLAYS, TWO NORMAL PLAYS, THEN UP TO 3 REPLAYS
+// PRACTICE ROOM: ONE REQUIRED SLOW PLAY, ONE NORMAL PLAY, THEN OPTIONAL REPLAYS
 // ============================================================
 
 async function enterPracticeRoom() {
@@ -292,15 +299,93 @@ function queuePracticePlayback(stage, rate) {
 }
 
 
-function playPracticeVideo(rate) {
+function waitForMediaReady(media, timeoutMs = 12000) {
+    if (media.readyState >= 2) return Promise.resolve();
 
+    return new Promise(resolve => {
+        let finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timer);
+            media.removeEventListener("canplay", finish);
+            media.removeEventListener("error", finish);
+            resolve();
+        };
+        const timer = setTimeout(finish, timeoutMs);
+        media.addEventListener("canplay", finish, { once: true });
+        media.addEventListener("error", finish, { once: true });
+    });
+}
+
+
+function seekMedia(media, target = 0) {
+    if (!media || media.readyState < 1) return Promise.resolve();
+    if (Math.abs(media.currentTime - target) < 0.03) return Promise.resolve();
+
+    return new Promise(resolve => {
+        let finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timer);
+            media.removeEventListener("seeked", finish);
+            resolve();
+        };
+        const timer = setTimeout(finish, 1200);
+        media.addEventListener("seeked", finish, { once: true });
+        try {
+            media.currentTime = target;
+        } catch (error) {
+            finish();
+        }
+    });
+}
+
+
+function syncPracticeAudio() {
+    if (!practiceHasSidecar || practiceStage === "idle" || practiceStage === "done") return;
     const video = document.getElementById("tutorial-video");
+    const music = document.getElementById("music-player");
+    if (!video || !music || video.paused || music.paused) return;
 
+    const target = video.currentTime / practiceAudioScale;
+    if (Math.abs(music.currentTime - target) > 0.12) {
+        music.currentTime = Math.min(target, Number.isFinite(music.duration) ? music.duration : target);
+    }
+}
+
+
+function pausePracticeAudioWhileVideoBuffers() {
+    const music = document.getElementById("music-player");
+    if (practiceHasSidecar && music) music.pause();
+}
+
+
+function resumePracticeAudioWithVideo() {
+    if (!practiceHasSidecar || practiceStage === "idle" || practiceStage === "done") return;
+    const music = document.getElementById("music-player");
+    const video = document.getElementById("tutorial-video");
+    if (!music || !video || video.paused) return;
+    music.currentTime = Math.min(
+        video.currentTime / practiceAudioScale,
+        Number.isFinite(music.duration) ? music.duration : Infinity
+    );
+    music.play().catch(() => {});
+}
+
+
+document.getElementById("tutorial-video").addEventListener("waiting", pausePracticeAudioWhileVideoBuffers);
+document.getElementById("tutorial-video").addEventListener("playing", resumePracticeAudioWithVideo);
+
+
+async function playPracticeVideo(rate) {
+    const video = document.getElementById("tutorial-video");
+    const music = document.getElementById("music-player");
     if (!video || !video.getAttribute("src")) return;
 
+    const playbackId = ++practicePlaybackId;
     document.getElementById("tutorial-tap").hidden = true;
-
-    const music = document.getElementById("music-player");
     video.pause();
     music.pause();
     video.playbackRate = rate;
@@ -310,84 +395,72 @@ function playPracticeVideo(rate) {
     const normalTrack = currentDance && currentDance.audio_url
         ? API + currentDance.audio_url : null;
     const audioTrack = slowTrack || normalTrack;
-    const mediaUrl = audioTrack || API + currentDance.video_url;
-    if (music.getAttribute("src") !== mediaUrl) {
-        music.src = mediaUrl;
+
+    practiceHasSidecar = Boolean(audioTrack);
+    practiceAudioScale = slowTrack ? rate : 1;
+
+    if (audioTrack && music.getAttribute("src") !== audioTrack) {
+        music.src = audioTrack;
         music.load();
     }
     music.playbackRate = slowTrack ? 1 : rate;
-    music.currentTime = 0;
     video.muted = Boolean(audioTrack);
 
-    // ignore timeupdate while we rewind, otherwise the old end-of-clip
-    // position can make the next stage finish instantly
     practiceSeeking = true;
-
-    const seekDone = () => {
-        practiceSeeking = false;
-    };
-
-    video.addEventListener("seeked", seekDone, { once: true });
-    setTimeout(seekDone, 500);
-
     try {
-        video.currentTime = 0;
-    } catch (error) {
+        await Promise.all([
+            waitForMediaReady(video),
+            audioTrack ? waitForMediaReady(music) : Promise.resolve()
+        ]);
+        if (playbackId !== practicePlaybackId) return;
+
+        await Promise.all([
+            seekMedia(video, 0),
+            audioTrack ? seekMedia(music, 0) : Promise.resolve()
+        ]);
+        if (playbackId !== practicePlaybackId) return;
+
         practiceSeeking = false;
-        // metadata may not be ready yet; play() will wait for it
-    }
-
-    const attempt = video.play();
-    const audioAttempt = audioTrack ? music.play() : null;
-
-    // Browsers may block autoplay with sound until the player taps once.
-    if (attempt) {
-        attempt.catch(error => {
-            if (error.name === "AbortError") return;
-            music.pause();
-            video.muted = false;
-            document.getElementById("tutorial-tap").hidden = false;
-        });
-    }
-    if (audioAttempt) {
-        audioAttempt.catch(() => {
-            music.pause();
-            video.muted = false;
-            document.getElementById("tutorial-tap").hidden = false;
-        });
+        const attempts = await Promise.all([
+            video.play(),
+            audioTrack ? music.play() : Promise.resolve()
+        ]);
+        void attempts;
+        syncPracticeAudio();
+    } catch (error) {
+        if (playbackId !== practicePlaybackId || error.name === "AbortError") return;
+        video.pause();
+        music.pause();
+        video.muted = false;
+        document.getElementById("tutorial-tap").hidden = false;
+    } finally {
+        if (playbackId === practicePlaybackId) practiceSeeking = false;
     }
 }
 
-
-function resumePracticeVideo() {
-
+async function resumePracticeVideo() {
     document.getElementById("tutorial-tap").hidden = true;
-
     const video = document.getElementById("tutorial-video");
     const music = document.getElementById("music-player");
-    const attempt = video.play();
-    const audioAttempt = video.muted ? music.play() : null;
-
-    if (attempt) {
-        attempt.catch(() => {
-            music.pause();
-            video.muted = false;
-            document.getElementById("tutorial-tap").hidden = false;
-        });
-    }
-    if (audioAttempt) {
-        audioAttempt.catch(() => {
-            music.pause();
-            video.muted = false;
-        });
+    try {
+        await Promise.all([
+            video.play(),
+            practiceHasSidecar ? music.play() : Promise.resolve()
+        ]);
+        syncPracticeAudio();
+    } catch (error) {
+        music.pause();
+        video.muted = false;
+        document.getElementById("tutorial-tap").hidden = false;
     }
 }
-
 
 function stopPracticePlayback() {
 
     const video = document.getElementById("tutorial-video");
 
+    practicePlaybackId++;
+    practiceHasSidecar = false;
     if (video) {
         video.pause();
         video.muted = false;
@@ -485,7 +558,7 @@ function updatePracticeUI() {
     }
 
     if (start) {
-        // All four required viewings must finish before the challenge can start.
+        // Both required viewings must finish before the challenge can start.
         start.disabled = practiceStage !== "done";
     }
 }
@@ -496,6 +569,7 @@ document.getElementById("tutorial-video").addEventListener("timeupdate", event =
 
     if (!config || practiceSeeking) return;
 
+    syncPracticeAudio();
     const video = event.target;
     const limit = Math.min(config.clip_seconds, video.duration || config.clip_seconds);
 
@@ -566,7 +640,7 @@ async function startBackendCamera() {
         frameCanvas = document.createElement("canvas");
         status.textContent = "Camera connected. Stand side by side so both players are visible.";
         if (frameTimer) clearInterval(frameTimer);
-        frameTimer = setInterval(sendCameraFrame, 140);
+        frameTimer = setInterval(sendCameraFrame, 200);
     } catch (error) {
         cameraStarted = false;
         status.textContent = "Camera unavailable: allow camera permission, then try again.";
@@ -579,11 +653,11 @@ async function sendCameraFrame() {
     if (!cameraStarted || sendingFrame || !source.videoWidth || !source.videoHeight) return;
     sendingFrame = true;
     try {
-        const scale = Math.min(1, 640 / source.videoWidth);
+        const scale = Math.min(1, 480 / source.videoWidth);
         frameCanvas.width = Math.round(source.videoWidth * scale);
         frameCanvas.height = Math.round(source.videoHeight * scale);
         frameCanvas.getContext("2d").drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
-        const blob = await new Promise(resolve => frameCanvas.toBlob(resolve, "image/jpeg", 0.72));
+        const blob = await new Promise(resolve => frameCanvas.toBlob(resolve, "image/jpeg", 0.65));
         if (blob) {
             const response = await fetch(API + "/api/frame", {
                 method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob
@@ -704,10 +778,9 @@ function onState(state) {
             roundStarted = true;
         }
 
-        // the dance just started: play the music
+        // Start the reference video and soundtrack together when the round begins.
         if (state.phase === "challenge" && lastPhase !== "challenge") {
-            playMusic();
-            startChallengePreview();
+            startChallengePlayback();
         }
 
         if (state.phase === "challenge") {
@@ -728,69 +801,108 @@ function onState(state) {
 }
 
 
-function startChallengePreview() {
-
+async function startChallengePlayback() {
     stopChallengePreview();
     if (!currentDance) return;
 
+    const playbackId = challengePlaybackId;
     const preview = document.getElementById("challenge-preview");
+    const reference = document.getElementById("challenge-reference");
+    const music = document.getElementById("music-player");
     const previewUrl = API + currentDance.video_url;
-    const danceLength = Number(currentDance.duration_seconds || config.clip_seconds || 15);
-    challengePreviewLimit = Math.min(Math.floor(danceLength / 3), Number(currentDance.round_seconds || danceLength));
+    const musicUrl = currentDance.audio_url ? API + currentDance.audio_url : "";
 
     if (preview.getAttribute("src") !== previewUrl) {
         preview.src = previewUrl;
         preview.load();
     }
+    if (musicUrl && music.getAttribute("src") !== musicUrl) {
+        music.src = musicUrl;
+        music.load();
+    }
 
-    preview.currentTime = 0;
+    challengePreviewLimit = Math.max(
+        1,
+        Number(currentDance.round_seconds || currentDance.duration_seconds || config.clip_seconds || 15)
+    );
+    challengePreviewOpaqueUntil = challengePreviewLimit / 3;
     preview.playbackRate = 1;
-    preview.muted = true;
-    document.getElementById("challenge-reference").hidden = false;
+    preview.muted = Boolean(musicUrl);
+    reference.style.opacity = "1";
+    reference.hidden = false;
     preview.hidden = false;
-    preview.parentElement.classList.add("previewing");
+
+    try {
+        await Promise.all([
+            waitForMediaReady(preview),
+            musicUrl ? waitForMediaReady(music) : Promise.resolve()
+        ]);
+        if (playbackId !== challengePlaybackId ||
+            !document.getElementById("challenge").classList.contains("active")) return;
+
+        await Promise.all([
+            seekMedia(preview, 0),
+            musicUrl ? seekMedia(music, 0) : Promise.resolve()
+        ]);
+        if (playbackId !== challengePlaybackId) return;
+
+        const attempts = await Promise.all([preview.play(), musicUrl ? music.play() : Promise.resolve()]);
+        void attempts;
+    } catch (error) {
+        if (playbackId === challengePlaybackId) {
+            console.warn("Challenge media could not start:", error);
+            stopChallengePreview();
+        }
+        return;
+    }
+
     preview.ontimeupdate = () => {
-        if (preview.currentTime >= challengePreviewLimit) stopChallengePreview();
+        if (musicUrl && !music.paused && Math.abs(music.currentTime - preview.currentTime) > 0.12) {
+            music.currentTime = Math.min(preview.currentTime, Number.isFinite(music.duration) ? music.duration : preview.currentTime);
+        }
+        const fadeDuration = Math.max(0.01, challengePreviewLimit - challengePreviewOpaqueUntil);
+        const fade = Math.max(0, Math.min(1,
+            (preview.currentTime - challengePreviewOpaqueUntil) / fadeDuration));
+        reference.style.opacity = String(1 - fade);
+    };
+    preview.onwaiting = () => { if (musicUrl) music.pause(); };
+    preview.onplaying = () => {
+        if (musicUrl && music.paused && playbackId === challengePlaybackId) {
+            music.currentTime = Math.min(preview.currentTime, Number.isFinite(music.duration) ? music.duration : preview.currentTime);
+            music.play().catch(error => console.warn("Challenge audio could not resume:", error));
+        }
     };
     preview.onended = stopChallengePreview;
-    challengePreviewTimer = setTimeout(stopChallengePreview, challengePreviewLimit * 1000 + 250);
-    preview.play().catch(stopChallengePreview);
+    challengePreviewTimer = setTimeout(
+        stopChallengePreview,
+        challengePreviewLimit * 1000 + 1000
+    );
 }
 
 
 function stopChallengePreview() {
-
     clearTimeout(challengePreviewTimer);
     challengePreviewTimer = null;
+    challengePlaybackId++;
+
     const preview = document.getElementById("challenge-preview");
-    if (!preview) return;
-    preview.pause();
-    preview.hidden = true;
     const reference = document.getElementById("challenge-reference");
-    if (reference) reference.hidden = true;
-    preview.parentElement.classList.remove("previewing");
-    preview.ontimeupdate = null;
-    preview.onended = null;
-}
-
-
-function playMusic() {
-
     const music = document.getElementById("music-player");
-    const normalTrack = currentDance && currentDance.audio_url
-        ? API + currentDance.audio_url : API + currentDance.video_url;
-
-    if (music.getAttribute("src") !== normalTrack) {
-        music.src = normalTrack;
-        music.load();
+    if (preview) {
+        preview.pause();
+        preview.hidden = true;
+        preview.ontimeupdate = null;
+        preview.onwaiting = null;
+        preview.onplaying = null;
+        preview.onended = null;
     }
-
-    music.currentTime = 0;
-    music.playbackRate = 1;
-    music.muted = false;
-
-    music.play().catch(error => console.warn("Music was blocked:", error));
+    if (reference) {
+        reference.style.opacity = "1";
+        reference.hidden = true;
+    }
+    if (music) music.pause();
 }
+
 
 
 // UPDATE THE CHALLENGE SCREEN
@@ -806,10 +918,20 @@ function updateChallengeUI(state) {
     document.getElementById("time-left").textContent =
         Math.ceil(state.time_left) + "s";
 
-    document.getElementById("stars-display").innerHTML =
-        Array.from({ length: 5 }, (_, index) =>
-            `<span class="score-star ${index < stars ? "earned" : "empty"}" aria-hidden="true">${index < stars ? "★" : "☆"}</span>`
-        ).join("");
+    const starDisplay = document.getElementById("stars-display");
+    if (stars !== displayedStars) {
+        starDisplay.replaceChildren();
+        for (let index = 0; index < 5; index++) {
+            const star = document.createElement("span");
+            const earned = index < stars;
+            star.className = "score-star " + (earned ? "earned" : "empty");
+            star.setAttribute("aria-hidden", "true");
+            star.textContent = earned ? "★" : "☆";
+            starDisplay.appendChild(star);
+        }
+        displayedStars = stars;
+        starDisplay.setAttribute("aria-label", stars + " of 5 stars");
+    }
 
     const [p1, p2] = state.players;
 
@@ -903,6 +1025,7 @@ function resetChallengeUI() {
     document.getElementById("accuracy-text").textContent = "0%";
     document.getElementById("time-left").textContent = "";
     document.getElementById("stars-display").textContent = "☆ ☆ ☆ ☆ ☆";
+    displayedStars = -1;
     document.getElementById("challenge-message").textContent = "Team accuracy: 0%";
     document.getElementById("ice-overlay").style.opacity = 0.85;
     document.getElementById("p1-title").textContent = "PLAYER 1";
@@ -1209,8 +1332,9 @@ function drawSkeleton(context, playerIndex, offsetX, width, height) {
     const color = PLAYER_COLORS[playerIndex];
     const radius = Math.max(5, height / 85);
 
-    // dots only, no connecting lines
-    for (let index = 11; index <= 32; index++) {
+    // Show only shoulders, elbows, wrists, hips, knees, and ankles.
+    const importantJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+    for (const index of importantJoints) {
 
         if (landmarks[index][2] < 0.3) continue;
 

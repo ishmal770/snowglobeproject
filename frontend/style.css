@@ -1357,8 +1357,25 @@ input {
 #challenge .progress-label { grid-column: 1 / -1; margin: 0; font-size: 13px; }
 #challenge .progress-bar { grid-column: 1; height: 10px; }
 #challenge #progress-fill { background: #6386a8; transition: width 0.2s linear; }
-#challenge #stars-display { grid-column: 2; grid-row: 2; margin: 0; font-size: 25px; }
-#challenge #challenge-message { grid-column: 3; grid-row: 2; margin: 0; font-size: 12px; }
+#challenge #stars-display {
+    grid-column: 2;
+    grid-row: 2;
+    margin: 0;
+    padding: 0 8px;
+    color: #f0b928;
+    font-size: clamp(30px, 3.2vw, 44px);
+    line-height: 1;
+    letter-spacing: 5px;
+    text-shadow: 0 2px 0 #795b16, 0 0 14px #ffd95a;
+}
+#challenge #challenge-message {
+    grid-column: 3;
+    grid-row: 2;
+    margin: 0;
+    color: #31485d;
+    font-size: clamp(12px, 1.2vw, 16px);
+    font-weight: 800;
+}
 
 #challenge .dance-layout {
     flex: 1 1 auto;
@@ -1384,7 +1401,7 @@ input {
 }
 
 #challenge .dance-panel h2 { margin: 0 0 6px; font-size: clamp(15px, 2vh, 22px); }
-#challenge .dance-camera { flex: 1 1 auto; min-height: 0; height: 100%; aspect-ratio: auto; border-radius: 7px; }
+#challenge .dance-camera { position: relative; flex: 1 1 auto; min-height: 0; height: 100%; aspect-ratio: auto; border-radius: 7px; }
 #challenge .player-feedback { background: #34495e; box-shadow: none; }
 #challenge .player-feedback.combo-hit { background: #187a58; box-shadow: none; }
 #challenge .player-feedback.combo-hot { background: #b64b1e; box-shadow: none; }
@@ -1397,8 +1414,11 @@ input {
     z-index: 20;
     top: 50%;
     left: 50%;
-    width: min(42vw, 560px);
-    padding: 10px;
+    width: min(72vw, 1050px);
+    padding: 12px;
+    opacity: 1;
+    transition: opacity 180ms linear;
+    pointer-events: none;
     transform: translate(-50%, -50%);
     border: 2px solid #fff;
     border-radius: 10px;
@@ -1408,7 +1428,9 @@ input {
 
 .challenge-reference[hidden] { display: none !important; }
 .challenge-reference p { margin: 0 0 7px; color: white; font-weight: 800; letter-spacing: 1px; }
-.challenge-reference video { display: block; width: 100%; max-height: 43vh; object-fit: contain; background: #111; }
+.challenge-reference video { display: block; width: 100%; max-height: 68vh; object-fit: contain; background: #111; }
+#challenge .challenge-reference p { font-size: clamp(14px, 1.7vw, 20px); }
+.challenge-reference .challenge-preview-note { margin: 0 0 10px; font-size: clamp(11px, 1.2vw, 15px); font-weight: 600; letter-spacing: 0; }
 
 /* Results screens: leaderboard and score at left, captured photo at right */
 #victory, #failure, #finale {
@@ -1490,7 +1512,8 @@ input {
     #challenge .dance-layout { gap: 5px; }
     #challenge .dance-panel { padding: 4px; }
     #challenge .dance-panel h2 { font-size: 12px; }
-    .challenge-reference { width: min(78vw, 440px); }
+    .challenge-reference { width: min(88vw, 1050px); }
+    .challenge-reference video { max-height: 62vh; }
     .results-shell { height: auto; min-height: 100vh; padding: 18px 14px; }
     .result-grid { grid-template-columns: 1fr; }
     .results-leaderboard { flex: initial; }
@@ -1609,3 +1632,31 @@ input {
 /* Mirror the local camera like a selfie preview. */
 #practice-camera { transform: scaleX(-1); }
 .camera-privacy-note { margin: 0; color: #607084; font-size: 12px; text-align: center; }
+
+/* Clear pose dots and a visible celebration star for each player. */
+#challenge .player-feedback { top: 10px; z-index: 4; }
+#challenge .player-star {
+    position: absolute;
+    z-index: 5;
+    top: 18%;
+    left: 50%;
+    color: #ffd43b;
+    font-size: clamp(42px, 7vw, 88px);
+    line-height: 1;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 8px) scale(.65);
+    text-shadow: 0 3px 0 #9a6812, 0 0 22px #ffe36a;
+}
+#challenge .player-star.active {
+    opacity: 1;
+    animation: player-star-hype 650ms ease-in-out infinite alternate;
+}
+@keyframes player-star-hype {
+    from { transform: translate(-50%, 8px) scale(.82) rotate(-8deg); }
+    to { transform: translate(-50%, -8px) scale(1.12) rotate(8deg); }
+}
+@media (max-width: 760px) {
+    #challenge #stars-display { font-size: 24px; letter-spacing: 2px; }
+    #challenge #challenge-message { font-size: 10px; }
+}

@@ -18,7 +18,7 @@ HOST = "0.0.0.0"
 PORT = int(os.environ.get("PORT", "5000"))
 STREAM_WIDTH = 960
 JPEG_QUALITY = 80
-STATE_HZ = 15
+STATE_HZ = 10
 COUNTDOWN_SECONDS = 3
 SERVER_DIR = Path(__file__).resolve().parent
 #only these kinds of files are served to the browser (so your .py files, model and json never get exposed)

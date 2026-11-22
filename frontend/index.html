@@ -116,7 +116,13 @@
                         <div id="tutorial-badge" class="tutorial-badge">
                             SLOW 0.75×
                         </div>
+                        <div id="practice-countdown" class="practice-countdown" hidden>
+                            <span id="practice-countdown-label">NEXT VIEWING IN</span>
+                            <strong id="practice-countdown-number">3</strong>
+                        </div>
                     </div>
+                    <p id="practice-step" class="panel-caption">GETTING READY</p>
+                    <p id="duo-hint" class="panel-caption" hidden>Players should stand in matching left and right positions.</p>
 
                     <div class="speed-controls">
                         <button id="replay-fast" onclick="replayFast()" disabled>
@@ -159,9 +165,13 @@
             Allow camera access to begin practicing.
         </p>
 
-        <button onclick="goToPage('countdown')">
-            START CHALLENGE →
-        </button>
+        <div class="practice-footer-controls">
+            <input type="text" id="team-name" placeholder="Enter your team name" maxlength="20">
+            <button id="start-challenge-button" onclick="startFromPractice()" disabled>
+                START CHALLENGE →
+            </button>
+        </div>
+        <p id="name-message" aria-live="polite"></p>
 
         <button class="back-button"
                 onclick="goToPage('instructions')">
@@ -231,12 +241,15 @@
                 <div id="progress-fill"></div>
             </div>
 
-                <div id="stars-display">
+                <div id="stars-display" aria-label="Current team stars">
                     ☆ ☆ ☆ ☆ ☆
                 </div>
+                <p id="challenge-message" aria-live="polite">Team accuracy: 0%</p>
+            </div>
 
-        <div id="challenge-reference" class="challenge-reference" hidden>
+            <div id="challenge-reference" class="challenge-reference" hidden>
             <p>FOLLOW THE DANCE</p>
+            <p class="challenge-preview-note">A short clip plays at the start to help you follow along.</p>
             <video id="challenge-preview" playsinline muted></video>
         </div>
 
@@ -249,6 +262,7 @@
 
                     <div class="dance-camera">
                         <canvas id="player1-canvas"></canvas>
+                        <div class="player-feedback" id="p1-feedback" aria-live="polite">STEP INTO VIEW</div>
                         <div class="player-star" id="p1-star" aria-hidden="true">★</div>
                     </div>
                 </div>
@@ -276,6 +290,7 @@
 
                     <div class="dance-camera">
                         <canvas id="player2-canvas"></canvas>
+                        <div class="player-feedback" id="p2-feedback" aria-live="polite">STEP INTO VIEW</div>
                         <div class="player-star" id="p2-star" aria-hidden="true">★</div>
                     </div>
                 </div>
@@ -391,7 +406,7 @@
     <video id="camera-source" class="offscreen" autoplay muted playsinline></video>
 
     <!-- plays the dance music during the challenge -->
-    <video id="music-player" playsinline hidden></video>
+    <audio id="music-player" preload="auto"></audio>
 
     <script src="config.js"></script>
     <script src="script.js"></script>
