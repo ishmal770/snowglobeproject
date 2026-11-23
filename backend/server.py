@@ -8,6 +8,7 @@ Heavy start-up work (audio extraction, loading the pose model, analysing the
 dance videos) runs in a background thread so the web server answers requests
 (and passes Render's health check) right away.
 """
+import base64
 import json
 import os
 import re
@@ -15,6 +16,7 @@ import shutil
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -175,16 +177,13 @@ class GameServer:
 
     def _prepare(self):
         try:
-            self.stage = "finding pose model"
-            self.model_path = td.find_model()
-            print("Model:", self.model_path)
+            # the pose model is only needed if a dance has no saved *_ref.npy file yet,
+            # so it is looked up lazily (committed .npy files = instant start-up, no model needed)
 
-            # detector first: players can be seen in the practice room as soon as possible
-            self.stage = "loading pose detector"
-            self.async_det = td.AsyncDetector(td.Detector(self.model_path, num_poses=2))
-            print("Pose detector ready")
+            # live pose detection now happens in the player's browser (MediaPipe JS),
+            # so the server only needs a detector for analysing the reference dance videos.
 
-            factory = lambda n: td.Detector(self.model_path, num_poses=n)
+            factory = lambda n: td.Detector(self._get_model(), num_poses=n)
             pending = list(self.dances)
             total = len(pending)
             while pending and self.running:
@@ -206,6 +205,13 @@ class GameServer:
             traceback.print_exc()
             self.error = str(exc)
             self.stage = "failed"
+
+    def _get_model(self):
+        if self.model_path is None:
+            self.stage = "finding pose model"
+            self.model_path = td.find_model()
+            print("Model:", self.model_path)
+        return self.model_path
 
     def want(self, name):
         if name in self.dances and name not in self.wanted:
@@ -237,15 +243,44 @@ class GameServer:
                 pass
 
     # ------------------------------------------------------------ frames in
-    def submit_frame(self, frame):
-        det = self.async_det
-        if det is None:
+    def submit_landmarks(self, data):
+        """Landmarks detected in the player's browser. Coordinates are already mirrored (x = 1 - x)."""
+        raw = data.get("poses")
+        if not isinstance(raw, list):
             return False
-        mirrored = cv2.flip(frame, 1)       # same mirroring the browser shows the players
+        poses = []
+        for pose in raw[:4]:
+            if not isinstance(pose, list) or len(pose) != 33:
+                continue
+            try:
+                poses.append([SimpleNamespace(x=float(p[0]), y=float(p[1]),
+                                              visibility=float(p[2]) if len(p) > 2 else 1.0)
+                              for p in pose])
+            except (TypeError, ValueError):
+                continue
+        try:
+            w = max(1, int(data.get("w") or 640))
+            h = max(1, int(data.get("h") or 480))
+        except (TypeError, ValueError):
+            w, h = 640, 480
+
+        # optional snapshot, only used for the result photo
+        frame = None
+        snap = data.get("frame")
+        if isinstance(snap, str) and snap:
+            try:
+                buf = base64.b64decode(snap.split(",", 1)[-1])
+                frame = cv2.imdecode(np.frombuffer(buf, np.uint8), cv2.IMREAD_COLOR)
+                if frame is not None:
+                    frame = cv2.flip(frame, 1)   # same mirroring the players see
+            except Exception:
+                frame = None
+
         with self.lock:
-            self.last_frame = mirrored
-            self.frame_size = (mirrored.shape[1], mirrored.shape[0])
-        det.submit(mirrored)
+            self.frame_size = (w, h)
+            if frame is not None:
+                self.last_frame = frame
+            self._process(poses, fresh_frame=frame is not None)
         return True
 
     # ------------------------------------------------------------ game loop
@@ -266,7 +301,7 @@ class GameServer:
                 import traceback
                 traceback.print_exc()
 
-    def _process(self, poses):
+    def _process(self, poses, fresh_frame=False):
         now = time.monotonic()
         w, h = self.frame_size
         self.last_result_time = now
@@ -300,7 +335,7 @@ class GameServer:
 
         self.ema = 0.8 * self.ema + 0.2 * (sims[0] + sims[1]) / 2
         if (self.scored.max() > 10 and self.slots[0] is not None and self.slots[1] is not None
-                and self.ema > self.best_ema and self.last_frame is not None):
+                and self.ema > self.best_ema and fresh_frame and self.last_frame is not None):
             self.best_ema = self.ema
             self.best_frame = self._render_photo_frame(self.last_frame, self.slots)
 
@@ -363,10 +398,11 @@ class GameServer:
                 return 400, {"error": f"Unknown dance: {dance_id}"}
             if self.error:
                 return 503, {"error": "Server failed to start: " + self.error}
-            if self.async_det is None or dance.name not in self.ref:
+            if dance.name not in self.ref:
                 return 503, {"error": f"Still getting the dance ready ({self.stage}). Try again in a moment."}
             self.clear_round()
-            self.async_det.reset()
+            if self.async_det is not None:
+                self.async_det.reset()
             self.slots = [None, None]
             self.dance = dance
             self.pair = pair
@@ -496,16 +532,13 @@ def dance_audio_slow(dance_id):
     return _media(dance_id, "audio_slow", "audio/mpeg")
 
 
-@app.route("/api/frame", methods=["POST"])
-def api_frame():
-    data = request.get_data()
-    if not data:
-        return jsonify({"error": "empty frame"}), 400
-    frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
-    if frame is None:
-        return jsonify({"error": "bad image"}), 400
-    if not server.submit_frame(frame):
-        return jsonify({"error": "detector still loading"}), 503
+@app.route("/api/landmarks", methods=["POST"])
+def api_landmarks():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "expected JSON"}), 400
+    if not server.submit_landmarks(data):
+        return jsonify({"error": "bad landmarks"}), 400
     return ("", 204)
 
 

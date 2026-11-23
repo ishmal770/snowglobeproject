@@ -624,7 +624,39 @@ function startFromPractice() {
 }
 
 
-// Request the local team's camera in the browser and send small frames to the scoring API.
+// Request the local team's camera, detect poses IN THE BROWSER with MediaPipe,
+// and send only the 33 landmarks per player (a few hundred bytes) to the scoring API.
+const MEDIAPIPE_VERSION = "0.10.21";
+const MEDIAPIPE_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + MEDIAPIPE_VERSION;
+const DETECT_INTERVAL_MS = 80;       // ~12 detections per second
+const SNAPSHOT_INTERVAL_MS = 1000;   // small JPEG for the result photo, only while dancing
+let poseLandmarker = null;
+let poseLandmarkerLoading = null;
+let lastSnapshotTime = 0;
+
+function loadPoseLandmarker() {
+    if (poseLandmarker) return Promise.resolve(poseLandmarker);
+    if (poseLandmarkerLoading) return poseLandmarkerLoading;
+    poseLandmarkerLoading = (async () => {
+        const vision = await import(MEDIAPIPE_CDN + "/vision_bundle.mjs");
+        const fileset = await vision.FilesetResolver.forVisionTasks(MEDIAPIPE_CDN + "/wasm");
+        const make = delegate => vision.PoseLandmarker.createFromOptions(fileset, {
+            baseOptions: { modelAssetPath: "pose_landmarker_lite.task", delegate },
+            runningMode: "VIDEO",
+            numPoses: 2
+        });
+        try {
+            poseLandmarker = await make("GPU");
+        } catch (gpuError) {
+            console.warn("GPU delegate unavailable, using CPU:", gpuError);
+            poseLandmarker = await make("CPU");
+        }
+        return poseLandmarker;
+    })();
+    poseLandmarkerLoading.catch(() => { poseLandmarkerLoading = null; });
+    return poseLandmarkerLoading;
+}
+
 async function startBackendCamera() {
     if (cameraStarted) return;
     const status = document.getElementById("camera-status");
@@ -643,42 +675,69 @@ async function startBackendCamera() {
         await Promise.all([preview.play(), source.play()]);
         cameraStarted = true;
         frameCanvas = document.createElement("canvas");
+        status.textContent = "Loading the pose detector...";
+        await loadPoseLandmarker();
+        if (!cameraStarted) return;      // player left the page while the model loaded
         status.textContent = "Camera connected. Stand side by side so both players are visible.";
-        if (frameTimer) clearInterval(frameTimer);
-        frameTimer = setInterval(sendCameraFrame, 200);
+        scheduleDetection();
     } catch (error) {
         cameraStarted = false;
-        status.textContent = "Camera unavailable: allow camera permission, then try again.";
-        console.error("Camera permission failed:", error);
+        status.textContent = "Camera or pose detector unavailable: allow camera permission, then try again.";
+        console.error("Camera / pose setup failed:", error);
     }
 }
 
-async function sendCameraFrame() {
+function scheduleDetection() {
+    if (frameTimer) clearTimeout(frameTimer);
+    frameTimer = setTimeout(detectAndSend, DETECT_INTERVAL_MS);
+}
+
+async function detectAndSend() {
+    if (!cameraStarted) return;
     const source = document.getElementById("camera-source");
-    if (!cameraStarted || sendingFrame || !source.videoWidth || !source.videoHeight) return;
-    sendingFrame = true;
-    try {
-        const scale = Math.min(1, 480 / source.videoWidth);
-        frameCanvas.width = Math.round(source.videoWidth * scale);
-        frameCanvas.height = Math.round(source.videoHeight * scale);
-        frameCanvas.getContext("2d").drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
-        const blob = await new Promise(resolve => frameCanvas.toBlob(resolve, "image/jpeg", 0.65));
-        if (blob) {
-            const response = await fetch(API + "/api/frame", {
-                method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob
+    if (poseLandmarker && !sendingFrame && source.videoWidth && source.readyState >= 2) {
+        sendingFrame = true;
+        try {
+            const result = poseLandmarker.detectForVideo(source, performance.now());
+            // mirror x so it matches what the players see (the old server flipped each frame)
+            const poses = (result.landmarks || []).map(pose =>
+                pose.map(p => [
+                    Math.round((1 - p.x) * 10000) / 10000,
+                    Math.round(p.y * 10000) / 10000,
+                    Math.round((p.visibility ?? 1) * 1000) / 1000
+                ]));
+            const payload = { poses, w: source.videoWidth, h: source.videoHeight };
+
+            // while dancing, attach a small snapshot about once a second for the result photo
+            const now = performance.now();
+            const dancing = latestState && latestState.phase === "challenge";
+            if (dancing && now - lastSnapshotTime > SNAPSHOT_INTERVAL_MS) {
+                lastSnapshotTime = now;
+                const scale = Math.min(1, 480 / source.videoWidth);
+                frameCanvas.width = Math.round(source.videoWidth * scale);
+                frameCanvas.height = Math.round(source.videoHeight * scale);
+                frameCanvas.getContext("2d").drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
+                payload.frame = frameCanvas.toDataURL("image/jpeg", 0.6);
+            }
+
+            const response = await fetch(API + "/api/landmarks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
             });
-            if (!response.ok && response.status !== 503) throw new Error("camera upload failed: " + response.status);
+            if (!response.ok) throw new Error("landmark upload failed: " + response.status);
+        } catch (error) {
+            console.error("Pose detection / upload failed:", error);
+            document.getElementById("camera-status").textContent = "Lost connection to the scoring server.";
+        } finally {
+            sendingFrame = false;
         }
-    } catch (error) {
-        console.error("Camera frame upload failed:", error);
-        document.getElementById("camera-status").textContent = "Lost connection to the scoring server.";
-    } finally {
-        sendingFrame = false;
     }
+    if (cameraStarted) scheduleDetection();
 }
 
 function stopBrowserCamera() {
-    if (frameTimer) clearInterval(frameTimer);
+    if (frameTimer) clearTimeout(frameTimer);
     frameTimer = null;
     sendingFrame = false;
     cameraStarted = false;
