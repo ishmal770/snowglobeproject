@@ -107,7 +107,8 @@ class GameServer:
         self.round_seconds = {}
         self.ref = {}
 
-        self.audio_ready = threading.Event()
+        self.audio_locks = {}
+        self.wanted = []                # dances the player picked: analysed first
         self.ready = False
         self.stage = "starting"
         self.progress = 0.0
@@ -174,24 +175,20 @@ class GameServer:
             self.model_path = td.find_model()
             print("Model:", self.model_path)
 
-            self.stage = "preparing audio"
-            for dance in self.dances.values():
-                try:
-                    td.prepare_audio(dance)
-                except Exception as exc:
-                    print("Audio failed for", dance.name, exc)
-                    dance.audio = None
-                    dance.audio_slow = None
-            self.audio_ready.set()
-
+            # detector first: players can be seen in the practice room as soon as possible
             self.stage = "loading pose detector"
             self.async_det = td.AsyncDetector(td.Detector(self.model_path, num_poses=2))
+            print("Pose detector ready")
 
             factory = lambda n: td.Detector(self.model_path, num_poses=n)
-            names = list(self.dances)
-            for i, name in enumerate(names):
-                self.stage = f"analysing {name} ({i + 1}/{len(names)})"
-                self.progress = i / len(names)
+            pending = list(self.dances)
+            total = len(pending)
+            while pending and self.running:
+                # the dance a player just picked goes first
+                name = next((n for n in self.wanted if n in pending), pending[0])
+                pending.remove(name)
+                self.stage = f"analysing {name} ({total - len(pending)}/{total})"
+                self.progress = (total - len(pending) - 1) / total
                 try:
                     self.ref[name] = td.load_reference(self.dances[name], factory)
                 except Exception as exc:
@@ -205,7 +202,27 @@ class GameServer:
             traceback.print_exc()
             self.error = str(exc)
             self.stage = "failed"
-            self.audio_ready.set()
+
+    def want(self, name):
+        if name in self.dances and name not in self.wanted:
+            self.wanted.append(name)
+
+    def ensure_audio(self, name):
+        """Make this one dance's audio files the first time they are asked for."""
+        dance = self.dances.get(name)
+        if dance is None:
+            return
+        lock = self.audio_locks.setdefault(name, threading.Lock())
+        with lock:
+            if getattr(dance, "audio_checked", False):
+                return
+            try:
+                td.prepare_audio(dance)
+            except Exception as exc:
+                print("Audio failed for", name, exc)
+                dance.audio = None
+                dance.audio_slow = None
+            dance.audio_checked = True
 
     def close(self):
         self.running = False
@@ -400,8 +417,6 @@ class GameServer:
             }
 
     def dance_list(self):
-        def usable(path):
-            return bool(path) and Path(path).exists()
         items = []
         for name, d in self.dances.items():
             items.append({
@@ -409,8 +424,8 @@ class GameServer:
                 "name": name,
                 "duo": bool(d.duo),
                 "video_url": f"/api/dances/{name}/video",
-                "audio_url": f"/api/dances/{name}/audio" if usable(d.audio) else None,
-                "slow_audio_url": f"/api/dances/{name}/audio_slow" if usable(d.audio_slow) else None,
+                "audio_url": f"/api/dances/{name}/audio",
+                "slow_audio_url": f"/api/dances/{name}/audio_slow",
                 "duration_seconds": round(self.dance_seconds[name], 2),
                 "round_seconds": round(self.round_seconds[name], 2),
             })
@@ -430,8 +445,6 @@ def health():
 
 @app.route("/api/dances")
 def api_dances():
-    # audio files are created in the background on a cold start; give them a moment
-    server.audio_ready.wait(timeout=100)
     return jsonify({
         "dances": server.dance_list(),
         "clip_seconds": td.CLIP_SECONDS,
@@ -446,6 +459,9 @@ def _media(dance_id, attr, default_mime):
     dance = server.dances.get(dance_id)
     if dance is None:
         abort(404)
+    server.want(dance_id)
+    if attr != "video":
+        server.ensure_audio(dance_id)
     path = dance.video if attr == "video" else getattr(dance, attr, None)
     if not path or not Path(path).exists():
         abort(404)
