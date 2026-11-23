@@ -3,6 +3,11 @@ const localHost = ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = String(window.SNOWGLOBE_API || (localHost ? "http://" + location.hostname + ":5000" : ""))
     .replace(/\/+$/, "");
 
+// Media (dance videos / music) may be absolute URLs on a static host; API paths start with "/".
+function mediaUrl(path) {
+    return /^https?:\/\//.test(path) ? path : API + path;
+}
+
 let countdownTimer;
 let introTimer = null;
 let config = null;
@@ -165,8 +170,8 @@ async function pickDance(forceNew = false) {
 
     const video = document.getElementById("tutorial-video");
     const music = document.getElementById("music-player");
-    const url = API + currentDance.video_url;
-    const audioUrl = currentDance.audio_url ? API + currentDance.audio_url : url;
+    const url = mediaUrl(currentDance.video_url);
+    const audioUrl = currentDance.audio_url ? mediaUrl(currentDance.audio_url) : url;
 
     if (video.getAttribute("src") !== url) {
         video.src = url;
@@ -391,9 +396,9 @@ async function playPracticeVideo(rate) {
     video.playbackRate = rate;
 
     const slowTrack = rate < 1 && currentDance && currentDance.slow_audio_url
-        ? API + currentDance.slow_audio_url : null;
+        ? mediaUrl(currentDance.slow_audio_url) : null;
     const normalTrack = currentDance && currentDance.audio_url
-        ? API + currentDance.audio_url : null;
+        ? mediaUrl(currentDance.audio_url) : null;
     const audioTrack = slowTrack || normalTrack;
 
     practiceHasSidecar = Boolean(audioTrack);
@@ -826,8 +831,8 @@ async function startChallengePlayback() {
     const preview = document.getElementById("challenge-preview");
     const reference = document.getElementById("challenge-reference");
     const music = document.getElementById("music-player");
-    const previewUrl = API + currentDance.video_url;
-    const musicUrl = currentDance.audio_url ? API + currentDance.audio_url : "";
+    const previewUrl = mediaUrl(currentDance.video_url);
+    const musicUrl = currentDance.audio_url ? mediaUrl(currentDance.audio_url) : "";
 
     if (preview.getAttribute("src") !== previewUrl) {
         preview.src = previewUrl;

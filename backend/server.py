@@ -40,6 +40,10 @@ SERVER_DIR = Path(__file__).resolve().parent
 FRONTEND_TYPES = {".html", ".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico",
                   ".mp4", ".mp3", ".wav", ".woff", ".woff2", ".ttf"}
 
+# If set (e.g. https://your-site.vercel.app/dances) the dance videos / music are loaded from
+# that static host instead of this server, which is much faster on a small Render instance.
+MEDIA_BASE_URL = os.environ.get("MEDIA_BASE_URL", "").strip().rstrip("/")
+
 ALLOWED_ORIGINS = [o.strip().rstrip("/") for o in os.environ.get("FRONTEND_ORIGINS", "").split(",") if o.strip()]
 
 
@@ -417,15 +421,21 @@ class GameServer:
             }
 
     def dance_list(self):
+        def static_file(path):
+            # use the static host only for files that really exist next to the video in the repo
+            return MEDIA_BASE_URL and Path(path).exists()
+
         items = []
         for name, d in self.dances.items():
+            mp3 = d.video.with_name(name + ".mp3")
+            slow = d.video.with_name(name + "_slow.mp3")
             items.append({
                 "id": name,
                 "name": name,
                 "duo": bool(d.duo),
-                "video_url": f"/api/dances/{name}/video",
-                "audio_url": f"/api/dances/{name}/audio",
-                "slow_audio_url": f"/api/dances/{name}/audio_slow",
+                "video_url": f"{MEDIA_BASE_URL}/{d.video.name}" if MEDIA_BASE_URL else f"/api/dances/{name}/video",
+                "audio_url": f"{MEDIA_BASE_URL}/{mp3.name}" if static_file(mp3) else f"/api/dances/{name}/audio",
+                "slow_audio_url": f"{MEDIA_BASE_URL}/{slow.name}" if static_file(slow) else f"/api/dances/{name}/audio_slow",
                 "duration_seconds": round(self.dance_seconds[name], 2),
                 "round_seconds": round(self.round_seconds[name], 2),
             })
