@@ -11,8 +11,11 @@ env/
 # Secrets
 .env
 
-# Large MediaPipe AI models
+# Large MediaPipe AI models: ignore the heavy one (30 MB, too big for Render's free plan)
+# but KEEP the small lite model that the server needs to run.
 *.task
+!pose_landmarker_lite.task
+!backend/pose_landmarker_lite.task
 
 # IDE
 .vscode/
