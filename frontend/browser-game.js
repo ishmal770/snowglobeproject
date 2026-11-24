@@ -92,7 +92,28 @@ function stopChallengeMedia(){clearTimeout(challengeVideoTimer);const v=$("chall
 function stopCamera(){cameraOn=false;loopToken++;cancelAnimationFrame(raf);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;for(const id of ["practice-camera","camera-source"]){const v=$(id);if(v)v.srcObject=null;}}
 function updateChallengeUI(s){const percent=Math.round(s.pair_live*100);if($("progress-fill"))$("progress-fill").style.width=percent+"%";if($("accuracy-text"))$("accuracy-text").textContent=percent+"%";if($("time-left"))$("time-left").textContent=Math.ceil(s.time_left)+"s";const stars=$("stars-display");if(stars)stars.textContent="★ ".repeat(s.pair_stars)+"☆ ".repeat(5-s.pair_stars);if($("challenge-message"))$("challenge-message").textContent=`Team accuracy: ${percent}% · Player 1: ${Math.round(s.players[0].live*100)}% · Player 2: ${Math.round(s.players[1].live*100)}%`;for(let i=0;i<2;i++){const n=i+1,p=s.players[i],panel=$("p"+n+"-panel");if($("p"+n+"-title"))$("p"+n+"-title").textContent=`PLAYER ${n} · ${Math.round(p.live*100)}%`;if($("p"+n+"-feedback"))$("p"+n+"-feedback").textContent=!p.present?"STEP INTO VIEW":p.now>=.8?"NICE MOVE":p.now>=.5?"ALMOST — KEEP GOING":"MOVE WITH THE BEAT";if(panel)panel.classList.toggle("q-good",p.present&&p.now>=.8);}}
 function resetChallengeUI(){if($("progress-fill"))$("progress-fill").style.width="0%";if($("accuracy-text"))$("accuracy-text").textContent="0%";if($("challenge-message"))$("challenge-message").textContent="Team accuracy: 0%";}
-function drawCameraHalves(){if(!$("challenge")?.classList.contains("active"))return;const source=$("camera-source"),left=$("player1-canvas"),right=$("player2-canvas");if(!source?.videoWidth||!left||!right){requestAnimationFrame(drawCameraHalves);return;}const w=source.videoWidth,h=source.videoHeight,half=Math.floor(w/2);for(const c of [left,right]){if(c.height!==h){c.height=h;c.width=half;}}for(let i=0;i<2;i++){const c=i?right:left,x=c.getContext("2d");x.save();x.translate(c.width,0);x.scale(-1,1);x.drawImage(source,i?0:w-half,0,half,h,0,0,c.width,h);x.restore();const p=latestPoses[i];if(!p)continue;const edges=[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];const px=j=>i?(1-p[j].x)*w:(.5-p[j].x)*w;x.strokeStyle=i?"#ffb400":"#00b4ff";x.lineWidth=Math.max(3,h/160);for(const [a,b] of edges){if(p[a].v<.3||p[b].v<.3)continue;x.beginPath();x.moveTo(px(a),p[a].y*h);x.lineTo(px(b),p[b].y*h);x.stroke();}for(const j of [11,12,13,14,15,16,23,24,25,26,27,28]){if(p[j].v<.3)continue;x.beginPath();x.arc(px(j),p[j].y*h,Math.max(5,h/100),0,Math.PI*2);x.fillStyle=i?"#ffb400":"#00b4ff";x.fill();}}requestAnimationFrame(drawCameraHalves);}
+function drawCameraHalves() {
+  if (!$("challenge")?.classList.contains("active")) return;
+  const source = $("camera-source"), left = $("player1-canvas"), right = $("player2-canvas");
+  if (!source?.videoWidth || !left || !right) { requestAnimationFrame(drawCameraHalves); return; }
+  const w = source.videoWidth, h = source.videoHeight, half = Math.floor(w / 2);
+  for (const canvas of [left, right]) { if (canvas.height !== h) { canvas.height = h; canvas.width = half; } }
+  for (let i = 0; i < 2; i++) {
+    const canvas = i ? right : left, ctx = canvas.getContext("2d");
+    ctx.save(); ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+    ctx.drawImage(source, i ? 0 : w - half, 0, half, h, 0, 0, canvas.width, h); ctx.restore();
+    const pose = latestPoses[i]; if (!pose) continue;
+    const xFor = j => i ? (1 - pose[j].x) * w : (.5 - pose[j].x) * w;
+    const color = i ? "#ffb400" : "#00b4ff";
+    for (const j of [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]) {
+      if (pose[j].v < .3) continue;
+      const x = xFor(j), y = pose[j].y * h, radius = Math.max(5, h / 100);
+      ctx.beginPath(); ctx.arc(x, y, radius + 2, 0, Math.PI * 2); ctx.fillStyle = "rgba(0,0,0,.8)"; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+    }
+  }
+  requestAnimationFrame(drawCameraHalves);
+}
 function showResults(r){phase="results";const percent=Math.round(r.pair_accuracy*100),detail=`Player 1: ${Math.round(r.accuracies[0]*100)}% · Player 2: ${Math.round(r.accuracies[1]*100)}%`;const photo=r.photo||makeSnapshot();if(r.passed){if($("final-score"))$("final-score").textContent=percent+"%";if($("final-detail"))$("final-detail").textContent=detail;if($("submit-message"))$("submit-message").textContent="Score saved on this device.";const img=$("victory-photo");if(img){img.src=photo;img.hidden=false;}goToPage("victory");}else{if($("failure-score"))$("failure-score").textContent=percent+"%";if($("failure-detail"))$("failure-detail").textContent=detail;const img=$("failure-photo");if(img){img.src=photo;img.hidden=false;}goToPage("failure");}displayLeaderboard();}
 function readScores(){try{return JSON.parse(localStorage.getItem("snowglobe-scores")||"[]");}catch{return [];}}
 async function saveScore(r){const rows=readScores();rows.push({pair:r.pair,dance:r.dance,accuracy:Number(r.pair_accuracy.toFixed(5)),stars:r.stars,created_at:new Date().toISOString()});rows.sort((a,b)=>b.accuracy-a.accuracy);localStorage.setItem("snowglobe-scores",JSON.stringify(rows.slice(0,100)));if($("submit-message"))$("submit-message").textContent="Score saved on this device.";}
