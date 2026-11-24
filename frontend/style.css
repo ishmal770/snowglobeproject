@@ -1969,3 +1969,8 @@ input {
     font-weight: 900;
     letter-spacing: 2px;
 }
+#failure h2,
+#failure .failure-encouragement {
+    width: 100%;
+    text-align: center;
+}
