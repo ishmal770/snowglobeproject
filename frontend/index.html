@@ -292,16 +292,14 @@
     <section id="victory" class="screen">
         <div class="page-content">
 
-            <div class="celebration">🎉 ⭐ 🎉</div>
-
             <h1>ROUND COMPLETE!</h1>
 
             <h2>GREAT DANCING!</h2>
 
-            <div id="victory-stars">⭐⭐⭐</div>
+            <p id="victory-stars" class="ending-banner">CHALLENGE CLEARED</p>
 
-            <p id="final-score">Your dance accuracy: 95%</p>
-            <p id="final-detail"></p>
+            <p id="final-score" class="ending-average">Your dance accuracy: 95%</p>
+            <p id="final-detail" class="ending-player-scores"></p>
             <p id="final-rank" class="rank-message"></p>
 
             <div class="instruction-box">
@@ -314,8 +312,8 @@
 
             <div class="leaderboard pixel-leaderboard">
                 <div class="leaderboard-sign">
-                    <p class="leaderboard-overline">SNOWGLOBE ARCADE</p>
-                    <h2>HIGH SCORES</h2>
+                    <p class="leaderboard-overline">DeFROST ARCADE</p>
+                    <h2>DeFROST HIGH SCORES</h2>
                     <p class="leaderboard-caption">TOP DANCE TEAMS</p>
                 </div>
                 <ol id="leaderboard-list"></ol>
@@ -327,7 +325,7 @@
                 </button>
 
                 <button class="olaf-button" onclick="freeOlaf()">
-                    CONTINUE TO FREE OLAF ❄️
+                    CONTINUE TO FREE OLAF
                 </button>
             </div>
         </div>
@@ -337,14 +335,12 @@
     <section id="failure" class="screen">
         <div class="page-content">
 
-            <div class="celebration">❄️ 🥶 ❄️</div>
-
             <h1>OH NO!</h1>
 
-            <h2>THE KINGDOM IS STILL FROZEN!</h2>
+            <h2>OLAF IS STILL FROZEN</h2>
 
-            <p id="failure-score">Your dance accuracy: 40%</p>
-            <p id="failure-detail"></p>
+            <p id="failure-score" class="ending-average">Your dance accuracy: 40%</p>
+            <p id="failure-detail" class="ending-player-scores"></p>
             <p id="failure-rank" class="rank-message"></p>
 
             <p>Don't give up! Practice your moves and try again.</p>
@@ -353,15 +349,15 @@
 
             <div class="leaderboard pixel-leaderboard">
                 <div class="leaderboard-sign">
-                    <p class="leaderboard-overline">SNOWGLOBE ARCADE</p>
-                    <h2>HIGH SCORES</h2>
+                    <p class="leaderboard-overline">DeFROST ARCADE</p>
+                    <h2>DeFROST HIGH SCORES</h2>
                     <p class="leaderboard-caption">TOP DANCE TEAMS</p>
                 </div>
                 <ol id="failure-leaderboard-list"></ol>
             </div>
 
             <button onclick="retryGame()">
-                ↻ TRY AGAIN
+                TRY AGAIN
             </button>
 
         </div>
@@ -371,8 +367,6 @@
     <section id="finale" class="screen">
         <div class="page-content">
 
-            <div class="celebration">🎉 ⛄ ❄️ 🎉</div>
-
             <h1>CONGRATULATIONS!</h1>
 
             <h2>YOU SAVED OLAF!</h2>
@@ -381,22 +375,22 @@
                  class="finale-olaf"
                  alt="Olaf is free!">
 
-            <div id="finale-stars">⭐⭐⭐</div>
+            <p id="finale-stars" class="ending-banner">OLAF IS FREE</p>
 
-            <p id="finale-score"></p>
-            <p id="finale-detail"></p>
+            <p id="finale-score" class="ending-average"></p>
+            <p id="finale-detail" class="ending-player-scores"></p>
 
             <div class="leaderboard pixel-leaderboard">
                 <div class="leaderboard-sign">
-                    <p class="leaderboard-overline">SNOWGLOBE ARCADE</p>
-                    <h2>FINAL SCORES</h2>
+                    <p class="leaderboard-overline">DeFROST ARCADE</p>
+                    <h2>DeFROST HIGH SCORES</h2>
                     <p class="leaderboard-caption">TOP DANCE TEAMS</p>
                 </div>
                 <ol id="finale-leaderboard-list"></ol>
             </div>
 
             <button onclick="restartGame()">
-                PLAY AGAIN ↻
+                PLAY AGAIN
             </button>
 
         </div>
